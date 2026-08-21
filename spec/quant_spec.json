@@ -1,15 +1,57 @@
 {
-  "schema_version": 1,
-  "status": "draft",
-  "arithmetic": {
-    "input_dtype": "int16",
-    "weight_dtype": "int16",
-    "bias_dtype": "TBD",
-    "accumulator_dtype": "int48",
-    "output_dtype": "int16"
-  },
-  "rounding_mode": "TBD",
-  "saturation": "TBD",
-  "layers": []
-}
+  "document_version": "1.0",
+  "status": "review_required",
+  "frozen_date": "TBD",
 
+  "common": {
+    "activation_type": "signed_int16",
+    "weight_type": "signed_int16",
+    "bias_type": "signed_int32",
+    "accumulator_type": "signed_int48",
+    "rounding": "round_to_nearest_ties_away_from_zero",
+    "overflow_policy": "saturate",
+    "processing_order": [
+      "bias_included_accumulation",
+      "rounding_and_right_shift",
+      "activation_or_clamp"
+    ]
+  },
+
+  "layers": {
+    "conv1": {
+      "input_fraction_bits": 15,
+      "weight_fraction_bits": 14,
+      "bias_fraction_bits": 29,
+      "accumulator_fraction_bits": 29,
+      "right_shift_bits": 14,
+      "output_fraction_bits": 15,
+      "post_processing": "relu_and_clamp",
+      "output_min": 0,
+      "output_max": 32767
+    },
+
+    "conv2": {
+      "input_fraction_bits": 15,
+      "weight_fraction_bits": 15,
+      "bias_fraction_bits": 30,
+      "accumulator_fraction_bits": 30,
+      "right_shift_bits": 16,
+      "output_fraction_bits": 14,
+      "post_processing": "relu_and_clamp",
+      "output_min": 0,
+      "output_max": 32767
+    },
+
+    "conv3": {
+      "input_fraction_bits": 14,
+      "weight_fraction_bits": 15,
+      "bias_fraction_bits": 29,
+      "accumulator_fraction_bits": 29,
+      "right_shift_bits": 14,
+      "output_fraction_bits": 15,
+      "post_processing": "clamp",
+      "output_min": 0,
+      "output_max": 32767
+    }
+  }
+}
