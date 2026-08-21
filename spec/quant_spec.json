@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "status": "draft",
+  "arithmetic": {
+    "input_dtype": "int16",
+    "weight_dtype": "int16",
+    "bias_dtype": "TBD",
+    "accumulator_dtype": "int48",
+    "output_dtype": "int16"
+  },
+  "rounding_mode": "TBD",
+  "saturation": "TBD",
+  "layers": []
+}
+

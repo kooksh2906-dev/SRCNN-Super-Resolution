@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Simulation
+*.vcd
+*.fst
+*.wlf
+*.log
+work/
+xsim.dir/
+
+# Vivado generated files
+*.jou
+*.str
+*.xpr
+*.runs/
+*.cache/
+*.gen/
+*.hw/
+*.ip_user_files/
+.Xil/
+
+# Vitis generated files
+.metadata/
+Debug/
+Release/
+_ide/
+
+# Build artifacts
+build/
+dist/
+*.bit
+*.bin
+*.xsa
+*.hwh
+
+# Temporary or extracted vector data
+*.tmp
+*.bak
+
