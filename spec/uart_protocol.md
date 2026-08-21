@@ -5,6 +5,7 @@
 - Owner: Role A / Role C
 - Transport: UART
 - Default Baud Rate: 115200
+- Bring-up/Fallback Baud Rate: 9600
 - Frozen Date: TBD
 
 ## 1. 목적
@@ -22,13 +23,20 @@ UART 통신 중에는 일반 문자열 Debug Message를 함께 전송하지 않�
 
 | 항목 | 설정 |
 |---|---|
-| Baud Rate | 115200 bps |
+| Final Target Baud Rate | 115200 bps |
+| Bring-up/Fallback Baud Rate | 9600 bps |
 | Data Bit | 8-bit |
 | Parity | None |
 | Stop Bit | 1-bit |
 | Flow Control | None |
 | 전송 방식 | Binary |
 | Byte Order | Little Endian |
+
+- 초기 PING, READY 및 짧은 Packet 시험에서는 9600 bps를 사용할 수 있다.
+- 전체 256개 Tile을 전송하는 최종 시험과 시연에서는 115200 bps를 목표로 한다.
+- 115200 bps에서 Checksum, Frame Error 또는 Overrun Error가 반복되면 9600 bps로 되돌린다.
+- PC와 AXI UART Lite는 반드시 동일한 Baud Rate를 사용해야 한다.
+- AXI UART Lite의 Baud Rate는 Vivado IP 설정값이므로 변경 후 Bitstream을 다시 생성해야 한다.
 
 ## 3. 공통 Packet 구조
 
@@ -204,7 +212,8 @@ MAGIC0, MAGIC1과 마지막 CHECKSUM 필드는 계산에 포함하지 않는다.
 
 ## 13. Timeout 및 재전송
 
-- PC 응답 대기시간 초기값: 5초
+- 115200 bps 사용 시 PC 응답 대기시간 초기값: 5초
+- 9600 bps fallback 사용 시 PC 응답 대기시간 초기값: 15초
 - 제한 시간 내 응답이 없으면 동일 TILE_ID를 다시 전송할 수 있다.
 - 기본 최대 재시도 횟수: 3회
 - 3회 모두 실패하면 전체 처리를 중단하고 오류를 기록한다.
@@ -222,8 +231,11 @@ Payload를 수신하기 전에 TYPE과 PAYLOAD_LENGTH가 올바른 조합인지 
 
 - [ ] 역할 A: Vitis와 Register 제어 흐름 확인
 - [ ] 역할 C: PC Python Packet 구현 가능 여부 확인
-- [ ] 역할 C: 115200 Baud Rate 처리시간 확인
+- [ ] 역할 A/C: 9600 bps Bring-up 통신 확인
+- [ ] 역할 A/C: 115200 bps에서 Checksum 및 UART Error 확인
+- [ ] 역할 C: 115200 bps 전체 Tile 처리시간 확인
+- [ ] 팀 공통: 오류 발생 시 9600 bps fallback 적용 여부 확인
 - [ ] 팀 공통: Checksum 방식 확인
-- [ ] 팀 공통: Timeout 5초 및 재시도 3회 확인
+- [ ] 팀 공통: Baud Rate별 Timeout 5초/15초 및 재시도 3회 확인
 - [ ] 검토 완료 후 Status를 Frozen으로 변경
 - [ ] Frozen Date 기록
