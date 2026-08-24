@@ -3,7 +3,7 @@
 module tb_conv_loop_controller;
 
     reg clk;
-    reg arstn;
+    reg rst_n;
     reg start_i;
     reg advance_i;
 
@@ -27,7 +27,7 @@ module tb_conv_loop_controller;
 
     conv_loop_controller dut (
         .clk                (clk),
-        .arstn              (arstn),
+        .rst_n              (rst_n),
         .start_i            (start_i),
         .advance_i          (advance_i),
         .out_channel_count_i(out_channel_count_i),
@@ -121,7 +121,7 @@ module tb_conv_loop_controller;
 
     initial begin
         clk       = 1'b0;
-        arstn     = 1'b1;
+        rst_n     = 1'b1;
         start_i   = 1'b0;
         advance_i = 1'b0;
 
@@ -132,9 +132,13 @@ module tb_conv_loop_controller;
 
         error_count = 0;
 
-        // Test 1: 비동기 Reset
+        // Test 1: Sync Active-Low Reset
         #2;
-        arstn = 1'b0;
+        @(negedge clk);
+        rst_n = 1'b0;
+
+        @(posedge clk);
+        #1;
 
         check_case(
             1'b0, 1'b0, 1'b0,
@@ -143,7 +147,7 @@ module tb_conv_loop_controller;
 
         // Reset 해제
         @(negedge clk);
-        arstn = 1'b1;
+        rst_n = 1'b1;
 
         // Test 2: IDLE에서 Start를 받으면 RUN 진입 및 좌표 초기화
         pulse_start;
@@ -209,9 +213,12 @@ module tb_conv_loop_controller;
             4'd0, 4'd0, 32'd9
         );
 
-        // Test 10: RUN 중 비동기 Reset
-        #2;
-        arstn = 1'b0;
+        // Test 10: RUN 중 Sync Active-Low Reset
+        @(negedge clk);
+        rst_n = 1'b0;
+
+        @(posedge clk);
+        #1;
 
         check_case(
             1'b0, 1'b0, 1'b0,

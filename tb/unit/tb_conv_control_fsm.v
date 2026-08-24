@@ -3,7 +3,7 @@
 module tb_conv_control_fsm;
 
     reg clk;
-    reg arstn;
+    reg rst_n;
 
     reg start_i;
     reg advance_i;
@@ -16,7 +16,7 @@ module tb_conv_control_fsm;
 
     conv_control_fsm dut (
         .clk         (clk),
-        .arstn       (arstn),
+        .rst_n       (rst_n),
         .start_i     (start_i),
         .advance_i   (advance_i),
         .last_index_i(last_index_i),
@@ -63,23 +63,29 @@ module tb_conv_control_fsm;
 
     initial begin
         clk          = 1'b0;
-        arstn        = 1'b1;
+        rst_n        = 1'b1;
         start_i      = 1'b0;
         advance_i    = 1'b0;
         last_index_i = 1'b0;
         error_count  = 0;
 
         // --------------------------------------------------
-        // Test 1: 비동기 Reset
+        // Test 1: Sync Active-Low Reset
         // --------------------------------------------------
         #2;
-        arstn = 1'b0;
+        // 동기식 Reset 입력
+        @(negedge clk);
+        rst_n = 1'b0;
+
+        // 다음 Clock 상승 에지에서 실제 Reset
+        @(posedge clk);
+        #1;
 
         check_outputs(1'b0, 1'b0, 32'd1);
 
         // Reset 해제
         @(negedge clk);
-        arstn = 1'b1;
+        rst_n = 1'b1;
 
         // --------------------------------------------------
         // Test 2: IDLE 상태 유지
@@ -139,17 +145,22 @@ module tb_conv_control_fsm;
         check_outputs(1'b0, 1'b0, 32'd7);
 
         // --------------------------------------------------
-        // Test 8: RUN 중 비동기 Reset
+        // Test 8: RUN 중 Sync Active-Low Reset
         // --------------------------------------------------
         @(negedge clk);
         start_i = 1'b1;
 
+        // RUN 진입 확인
         @(posedge clk);
+        #1;
         check_outputs(1'b1, 1'b0, 32'd8);
 
-        // Clock Edge가 아닌 중간 시점에서 Reset
-        #2;
-        arstn = 1'b0;
+        // Reset을 Clock Dalling Edge에서 입력
+        @(negedge clk);
+        rst_n = 1'b0;
+
+        @(posedge clk);
+        #1;
 
         check_outputs(1'b0, 1'b0, 32'd9);
 

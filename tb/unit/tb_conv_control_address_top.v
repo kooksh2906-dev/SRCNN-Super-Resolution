@@ -3,7 +3,7 @@
 module tb_conv_control_address_top;
 
     reg clk;
-    reg arstn;
+    reg rst_n;
     reg start_i;
     reg advance_i;
 
@@ -33,7 +33,7 @@ module tb_conv_control_address_top;
 
     conv_control_address_top dut (
         .clk                (clk),
-        .arstn              (arstn),
+        .rst_n              (rst_n),
         .start_i            (start_i),
         .advance_i          (advance_i),
 
@@ -133,7 +133,7 @@ module tb_conv_control_address_top;
 
     initial begin
         clk       = 1'b0;
-        arstn     = 1'b1;
+        rst_n     = 1'b1;
         start_i   = 1'b0;
         advance_i = 1'b0;
 
@@ -147,9 +147,12 @@ module tb_conv_control_address_top;
 
         error_count = 0;
 
-        // Test 1: 비동기 Reset
-        #2;
-        arstn = 1'b0;
+        // Test 1: Sync Active-Low Reset
+        @(negedge clk);
+        rst_n = 1'b0;
+
+        @(posedge clk);
+        #1;
 
         check_case(
             32'd1, 1'b0, 1'b0, 1'b0,
@@ -157,7 +160,7 @@ module tb_conv_control_address_top;
         );
 
         @(negedge clk);
-        arstn = 1'b1;
+        rst_n = 1'b1;
 
         // Test 2: Start 후 첫 번째 좌표
         pulse_start;

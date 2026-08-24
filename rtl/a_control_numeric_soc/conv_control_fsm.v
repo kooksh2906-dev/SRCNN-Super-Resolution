@@ -2,7 +2,7 @@
 
 module conv_control_fsm (
     input  wire clk,
-    input  wire arstn,
+    input  wire rst_n,
 
     input  wire start_i,
     input  wire advance_i,
@@ -20,9 +20,9 @@ module conv_control_fsm (
     reg [1:0] next_state;
 
     // 1. State Register: 순차논리
-    // arstn=0이면 비동기 Reset
-    always @(posedge clk or negedge arstn) begin
-        if (!arstn)
+    // rst_n=0이면 다음 Clock 상승 에지에서 동기식 Reset
+    always @(posedge clk) begin
+        if (!rst_n)
             state <= IDLE;
         else
             state <= next_state;

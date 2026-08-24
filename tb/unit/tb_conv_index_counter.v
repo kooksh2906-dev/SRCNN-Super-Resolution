@@ -3,7 +3,7 @@
 module tb_conv_index_counter;
 
     reg clk;
-    reg arstn;
+    reg rst_n;
     reg clear_i;
     reg advance_i;
 
@@ -32,7 +32,7 @@ module tb_conv_index_counter;
 
     conv_index_counter dut (
         .clk                (clk),
-        .arstn              (arstn),
+        .rst_n              (rst_n),
         .clear_i            (clear_i),
         .advance_i          (advance_i),
         .out_channel_count_i(out_channel_count_i),
@@ -112,7 +112,7 @@ module tb_conv_index_counter;
 
     initial begin
         clk     = 1'b0;
-        arstn   = 1'b1;
+        rst_n   = 1'b1;
         clear_i = 1'b0;
         advance_i = 1'b0;
 
@@ -125,9 +125,13 @@ module tb_conv_index_counter;
         checked_count = 0;
         error_count   = 0;
 
-        // 비동기 Reset
+        // Sync Active-Low Reset
         #2;
-        arstn = 1'b0;
+        @(negedge clk);
+        rst_n = 1'b0;
+
+        @(posedge clk);
+        #1;
 
         check_coordinate(
             6'd0, 5'd0, 5'd0,
@@ -137,7 +141,7 @@ module tb_conv_index_counter;
 
         // Reset 해제 후 Clear
         @(negedge clk);
-        arstn   = 1'b1;
+        rst_n = 1'b1;
         clear_i = 1'b1;
 
         @(posedge clk);

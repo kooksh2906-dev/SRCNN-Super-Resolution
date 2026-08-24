@@ -2,7 +2,7 @@
 
 module conv_loop_controller (
     input  wire clk,
-    input  wire arstn,
+    input  wire rst_n,
 
     input  wire start_i,
     input  wire advance_i,
@@ -45,7 +45,7 @@ module conv_loop_controller (
     conv_control_fsm u_conv_control_fsm (
 		// input port
 		.clk(clk),
-		.arstn(arstn),
+		.rst_n(rst_n),
 		.start_i(start_i),
 		.advance_i(counter_advance),
 		.last_index_i(last_index_o),
@@ -58,7 +58,7 @@ module conv_loop_controller (
     conv_index_counter u_conv_index_counter (
         // input port
 		.clk(clk),
-		.arstn(arstn),
+		.rst_n(rst_n),
 		.clear_i(counter_clear),
 		.advance_i(counter_advance),
 		.out_channel_count_i(out_channel_count_i),

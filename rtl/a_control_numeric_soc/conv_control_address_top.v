@@ -2,7 +2,7 @@
 
 module conv_control_address_top (
     input  wire clk,
-    input  wire arstn,
+    input  wire rst_n,
 
     // 합성곱 실행 제어
     input  wire start_i,
@@ -39,7 +39,7 @@ module conv_control_address_top (
     conv_loop_controller u_conv_loop_controller (
 		// input port
 		.clk(clk),
-    	.arstn(arstn),
+    	.rst_n(rst_n),
 		.start_i(start_i),
 		.advance_i(advance_i),
 		.out_channel_count_i(out_channel_count_i),
