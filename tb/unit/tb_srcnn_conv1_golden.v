@@ -19,7 +19,7 @@ module tb_srcnn_conv1_golden;
     reg [3:0]  pad_i;
     reg [15:0] weight_word_base_addr_i;
     reg [15:0] bias_base_addr_i;
-    reg [5:0] requant_shift_i;
+    reg [5:0]  requant_shift_i;
 
     reg signed [15:0] activation_bram_data_i;
     reg        [63:0] weight_word_i;
@@ -47,6 +47,12 @@ module tb_srcnn_conv1_golden;
     wire signed [15:0] requant_pe3_o;
     wire               requant_valid_o;
 
+    // Conv1 결과가 저장된 Feature Bank를 검사하기 위한 Read 신호
+    reg         feature_read_en_i;
+    reg  [15:0] feature_read_addr_i;
+
+    wire signed [15:0] feature_read_data_o;
+
     wire [5:0] result_out_channel_group_o;
     wire [4:0] result_y_o;
     wire [4:0] result_x_o;
@@ -64,10 +70,13 @@ module tb_srcnn_conv1_golden;
     integer lane;
     integer output_channel;
     integer expected_addr;
+    integer feature_read_count;
+    integer feature_addr;
 
     reg signed [47:0] actual_accumulator;
     reg signed [15:0] actual_requant;
 
+    // A파트 제어, B파트 Compute 및 PE4 Requant 통합 DUT
     srcnn_group_compute_top dut (
         .clk                       (clk),
         .rst_n                     (rst_n),
@@ -112,6 +121,29 @@ module tb_srcnn_conv1_golden;
         .result_y_o                (result_y_o),
         .result_x_o                (result_x_o),
         .result_pe_enable_o        (result_pe_enable_o)
+    );
+
+    // Conv1 PE4 Requant 결과를 4-Bank Feature Map에 저장
+    feature_map_bank4 u_conv1_feature_bank (
+        .clk              (clk),
+        .rst_n            (rst_n),
+
+        // Conv1 Requant 결과를 즉시 저장
+        .write_valid_i    (requant_valid_o),
+        .write_pe_enable_i(result_pe_enable_o),
+        .write_group_i    (result_out_channel_group_o),
+        .write_y_i        (result_y_o),
+        .write_x_i        (result_x_o),
+
+        .write_data0_i    (requant_pe0_o),
+        .write_data1_i    (requant_pe1_o),
+        .write_data2_i    (requant_pe2_o),
+        .write_data3_i    (requant_pe3_o),
+
+        // Conv1 완료 후 저장 결과를 주소 순서대로 검사
+        .read_en_i        (feature_read_en_i),
+        .read_addr_i      (feature_read_addr_i),
+        .read_data_o      (feature_read_data_o)
     );
 
     always #5 clk = ~clk;
@@ -277,6 +309,10 @@ module tb_srcnn_conv1_golden;
 
         mismatch_count = 0;
 
+        feature_read_en_i   = 1'b0;
+        feature_read_addr_i = 16'd0;
+        feature_read_count  = 0;
+
         // Conv1: 1→64 Channel, 9×9, Same Padding
         out_channel_count_i = 7'd64;
         in_channel_count_i  = 7'd1;
@@ -305,6 +341,50 @@ module tb_srcnn_conv1_golden;
         repeat (2) @(posedge clk);
         #1;
 
+        // 저장된 Conv1 Feature Map 65,536개를 NCHW 주소 순서로 전수 검사
+        for (feature_addr = 0;
+             feature_addr < EXPECTED_COUNT;
+             feature_addr = feature_addr + 1) begin
+
+            @(negedge clk);
+
+            feature_read_en_i   = 1'b1;
+            feature_read_addr_i = feature_addr[15:0];
+
+            // Feature Bank의 1-Clock Read Latency 대기
+            @(posedge clk);
+            #1;
+
+            feature_read_count = feature_read_count + 1;
+
+            if (feature_read_data_o !==
+                relu_expected_mem[feature_addr]) begin
+
+                mismatch_count = mismatch_count + 1;
+
+                if (mismatch_count <= 10) begin
+                    $display(
+                        "[FAIL][FEATURE] addr=%0d actual=%0d expected=%0d",
+                        feature_addr,
+                        feature_read_data_o,
+                        relu_expected_mem[feature_addr]
+                    );
+                end
+            end
+
+            if ((feature_read_count != 0) &&
+                ((feature_read_count % 8192) == 0)) begin
+                $display(
+                    "[INFO] Feature values checked: %0d / %0d",
+                    feature_read_count,
+                    EXPECTED_COUNT
+                );
+            end
+        end
+
+        @(negedge clk);
+        feature_read_en_i = 1'b0;
+
         $display("========================================");
         $display("Conv1 Full Golden Test Completed");
         $display(
@@ -317,14 +397,22 @@ module tb_srcnn_conv1_golden;
             compared_value_count,
             EXPECTED_COUNT
         );
+        $display(
+            "feature_read_count   = %0d / %0d",
+            feature_read_count,
+            EXPECTED_COUNT
+        );
         $display("mismatch_count       = %0d", mismatch_count);
 
         if ((result_group_count == RESULT_GROUPS) &&
             (compared_value_count == EXPECTED_COUNT) &&
+            (feature_read_count == EXPECTED_COUNT) &&
             (mismatch_count == 0))
-            $display("[PASS] Conv1 INT48 and Requant Golden mismatch = 0");
+            $display(
+                "[PASS] Conv1 Compute, Requant and Feature Bank checks passed");
         else
-            $display("[FAIL] Conv1 INT48/Requant Golden test failed");
+            $display(
+                "[FAIL] Conv1 Compute/Requant/Feature Bank test failed");
 
         $display("========================================");
 
