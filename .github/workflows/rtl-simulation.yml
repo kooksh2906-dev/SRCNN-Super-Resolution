@@ -1,0 +1,58 @@
+name: RTL simulation
+
+on:
+  pull_request:
+    paths:
+      - "rtl/**"
+      - "tb/**"
+      - ".github/workflows/rtl-simulation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  simulate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Icarus Verilog
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes iverilog
+      - name: Compile and run unit testbenches
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t rtl_sources < <(find rtl -type f -name "*.v" -print | sort)
+          mapfile -t testbenches < <(find tb/unit -type f -name "tb_*.v" -print | sort)
+
+          if (( ${#rtl_sources[@]} == 0 )); then
+            echo "No RTL sources found" >&2
+            exit 1
+          fi
+
+          if (( ${#testbenches[@]} == 0 )); then
+            echo "No unit testbenches found" >&2
+            exit 1
+          fi
+
+          mkdir -p build/rtl-ci
+
+          for tb in "${testbenches[@]}"; do
+            top="$(basename "${tb%.v}")"
+            executable="build/rtl-ci/${top}.out"
+            log="build/rtl-ci/${top}.log"
+
+            echo "::group::${top}"
+            iverilog -g2001 -Wall -s "$top" -o "$executable" "${rtl_sources[@]}" "$tb"
+            vvp "$executable" | tee "$log"
+
+            if grep -Eq "\\[FAIL|TEST FAILED|FSM TEST FAILED|INDEX TEST FAILED|TOP TEST FAILED|LOOP TEST FAILED" "$log"; then
+              echo "Testbench reported a failure: $top" >&2
+              exit 1
+            fi
+            echo "::endgroup::"
+          done
