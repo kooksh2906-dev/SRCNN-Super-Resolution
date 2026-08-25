@@ -108,6 +108,33 @@ module srcnn_group_compute_top (
     reg [4:0] result_x_reg;
     reg [3:0] result_pe_enable_reg;
 
+    // 4단 Requant Pipeline과 동일하게 Valid를 4 Clock 지연
+    reg [3:0] requant_valid_pipe_reg;
+
+    // Stage 1 결과 위치
+    reg [5:0] result_group_stage1_reg;
+    reg [4:0] result_y_stage1_reg;
+    reg [4:0] result_x_stage1_reg;
+    reg [3:0] result_pe_enable_stage1_reg;
+
+    // Stage 2 결과 위치
+    reg [5:0] result_group_stage2_reg;
+    reg [4:0] result_y_stage2_reg;
+    reg [4:0] result_x_stage2_reg;
+    reg [3:0] result_pe_enable_stage2_reg;
+
+    // Stage 3 결과 위치
+    reg [5:0] result_group_stage3_reg;
+    reg [4:0] result_y_stage3_reg;
+    reg [4:0] result_x_stage3_reg;
+    reg [3:0] result_pe_enable_stage3_reg;
+
+    // Stage 4: Requant 출력과 함께 외부로 전달할 결과 위치
+    reg [5:0] result_out_channel_group_pipe_reg;
+    reg [4:0] result_y_pipe_reg;
+    reg [4:0] result_x_pipe_reg;
+    reg [3:0] result_pe_enable_pipe_reg;
+
     // BRAM 주소·데이터와 전체 합성곱 순서를 관리하는 A파트
     conv_group_data_supply_top u_conv_group_data_supply_top (
 		// Input Port
@@ -230,52 +257,135 @@ module srcnn_group_compute_top (
     );
 
 	// PE0 INT48 결과를 Layer 설정에 맞춰 INT16으로 후처리
-    requant_relu	u_requant_relu_pe0 (
-		// Input Port
-		.acc_i(accumulator0_o),
-		.shift_i(requant_shift_i),
-		// Oupput Port
-		.data_o(requant_pe0_int)
+    requant_relu u_requant_relu_pe0 (
+        .clk     (clk),
+        .rst_n   (rst_n),
+        .acc_i   (accumulator0_o),
+        .shift_i (requant_shift_i),
+        .data_o  (requant_pe0_int)
     );
 
 	// PE1 INT48 결과를 Layer 설정에 맞춰 INT16으로 후처리
-    requant_relu	u_requant_relu_pe1 (
-		// Input Port
-		.acc_i(accumulator1_o),
-		.shift_i(requant_shift_i),
-		// Oupput Port
-		.data_o(requant_pe1_int)
+    requant_relu u_requant_relu_pe1 (
+        .clk     (clk),
+        .rst_n   (rst_n),
+        .acc_i   (accumulator1_o),
+        .shift_i (requant_shift_i),
+        .data_o  (requant_pe1_int)
     );
 
 	// PE2 INT48 결과를 Layer 설정에 맞춰 INT16으로 후처리
-    requant_relu	u_requant_relu_pe2 (
-		// Input Port
-		.acc_i(accumulator2_o),
-		.shift_i(requant_shift_i),
-		// Oupput Port
-		.data_o(requant_pe2_int)
+    requant_relu u_requant_relu_pe2 (
+        .clk     (clk),
+        .rst_n   (rst_n),
+        .acc_i   (accumulator2_o),
+        .shift_i (requant_shift_i),
+        .data_o  (requant_pe2_int)
     );
 
 	// PE3 INT48 결과를 Layer 설정에 맞춰 INT16으로 후처리
-    requant_relu	u_requant_relu_pe3 (
-		// Input Port
-		.acc_i(accumulator3_o),
-		.shift_i(requant_shift_i),
-		// Oupput Port
-		.data_o(requant_pe3_int)
+    requant_relu u_requant_relu_pe3 (
+        .clk     (clk),
+        .rst_n   (rst_n),
+        .acc_i   (accumulator3_o),
+        .shift_i (requant_shift_i),
+        .data_o  (requant_pe3_int)
     );
 
 	// 비활성 PE는 이전 연산값이 외부로 전달되지 않도록 0으로 Mask
 	// 저장된 결과 PE Mask의 각 비트로 내부 Requant 결과 선택
-    assign requant_pe0_o = result_pe_enable_reg[0]? requant_pe0_int: 16'sd0;
-    assign requant_pe1_o = result_pe_enable_reg[1]? requant_pe1_int: 16'sd0;
-    assign requant_pe2_o = result_pe_enable_reg[2]? requant_pe2_int: 16'sd0;
-    assign requant_pe3_o = result_pe_enable_reg[3]? requant_pe3_int: 16'sd0;
-	
-	// Requant는 조합논리이므로 INT48 결과와 같은 Cycle에 유효
-	// B파트 결과 Valid를 Requant 결과 Valid로 전달
-    assign requant_valid_o = acc_valid_o;
+    assign requant_pe0_o = result_pe_enable_pipe_reg[0]
+                         ? requant_pe0_int : 16'sd0;
+    assign requant_pe1_o = result_pe_enable_pipe_reg[1]
+                         ? requant_pe1_int : 16'sd0;
+    assign requant_pe2_o = result_pe_enable_pipe_reg[2]
+                         ? requant_pe2_int : 16'sd0;
+    assign requant_pe3_o = result_pe_enable_pipe_reg[3]
+                         ? requant_pe3_int : 16'sd0;
 
+    // Valid와 결과 위치를 Requant의 4단 Pipeline과 동일하게 이동
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            requant_valid_pipe_reg <= 4'b0000;
+
+            result_group_stage1_reg     <= 6'd0;
+            result_y_stage1_reg         <= 5'd0;
+            result_x_stage1_reg         <= 5'd0;
+            result_pe_enable_stage1_reg <= 4'b0000;
+
+            result_group_stage2_reg     <= 6'd0;
+            result_y_stage2_reg         <= 5'd0;
+            result_x_stage2_reg         <= 5'd0;
+            result_pe_enable_stage2_reg <= 4'b0000;
+
+            result_group_stage3_reg     <= 6'd0;
+            result_y_stage3_reg         <= 5'd0;
+            result_x_stage3_reg         <= 5'd0;
+            result_pe_enable_stage3_reg <= 4'b0000;
+
+            result_out_channel_group_pipe_reg <= 6'd0;
+            result_y_pipe_reg                 <= 5'd0;
+            result_x_pipe_reg                 <= 5'd0;
+            result_pe_enable_pipe_reg         <= 4'b0000;
+        end
+        else begin
+            // bit0→bit1→bit2→bit3 순서로 Valid 이동
+            requant_valid_pipe_reg
+                <= {requant_valid_pipe_reg[2:0], acc_valid_o};
+
+            // Stage 1: INT48 결과가 발생한 위치 저장
+            if (acc_valid_o) begin
+                result_group_stage1_reg
+                    <= result_out_channel_group_reg;
+                result_y_stage1_reg
+                    <= result_y_reg;
+                result_x_stage1_reg
+                    <= result_x_reg;
+                result_pe_enable_stage1_reg
+                    <= result_pe_enable_reg;
+            end
+
+            // Stage 2
+            if (requant_valid_pipe_reg[0]) begin
+                result_group_stage2_reg
+                    <= result_group_stage1_reg;
+                result_y_stage2_reg
+                    <= result_y_stage1_reg;
+                result_x_stage2_reg
+                    <= result_x_stage1_reg;
+                result_pe_enable_stage2_reg
+                    <= result_pe_enable_stage1_reg;
+            end
+
+            // Stage 3
+            if (requant_valid_pipe_reg[1]) begin
+                result_group_stage3_reg
+                    <= result_group_stage2_reg;
+                result_y_stage3_reg
+                    <= result_y_stage2_reg;
+                result_x_stage3_reg
+                    <= result_x_stage2_reg;
+                result_pe_enable_stage3_reg
+                    <= result_pe_enable_stage2_reg;
+            end
+
+            // Stage 4: Requant 출력과 같은 Cycle에 위치 도착
+            if (requant_valid_pipe_reg[2]) begin
+                result_out_channel_group_pipe_reg
+                    <= result_group_stage3_reg;
+                result_y_pipe_reg
+                    <= result_y_stage3_reg;
+                result_x_pipe_reg
+                    <= result_x_stage3_reg;
+                result_pe_enable_pipe_reg
+                    <= result_pe_enable_stage3_reg;
+            end
+        end
+    end
+
+    // INT48 Valid를 4 Clock 지연해 Requant Valid 생성
+    assign requant_valid_o = requant_valid_pipe_reg[3];
+	
     // Bias Load 시점의 Output 위치와 PE Mask를 결과 완료까지 유지
     always @(posedge clk) begin
         if (!rst_n) begin
@@ -292,10 +402,11 @@ module srcnn_group_compute_top (
         end
     end
 
-    // 저장된 위치를 INT48 결과와 함께 외부에 전달
-    assign result_out_channel_group_o = result_out_channel_group_reg;
-    assign result_y_o                 = result_y_reg;
-    assign result_x_o                 = result_x_reg;
-    assign result_pe_enable_o         = result_pe_enable_reg;
+    // requant_valid_o와 함께 유효한 결과 위치
+    assign result_out_channel_group_o = result_out_channel_group_pipe_reg;
+
+    assign result_y_o         = result_y_pipe_reg;
+    assign result_x_o         = result_x_pipe_reg;
+    assign result_pe_enable_o = result_pe_enable_pipe_reg;
 
 endmodule

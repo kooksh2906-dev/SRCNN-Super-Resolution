@@ -76,6 +76,13 @@ module tb_srcnn_conv1_golden;
     reg signed [47:0] actual_accumulator;
     reg signed [15:0] actual_requant;
 
+    // 4단 Requant Pipeline의 출력 시점과 INT48 Valid를 정렬
+    reg         [3:0] acc_valid_delay_reg;
+    reg signed [47:0] accumulator0_delay_reg;
+    reg signed [47:0] accumulator1_delay_reg;
+    reg signed [47:0] accumulator2_delay_reg;
+    reg signed [47:0] accumulator3_delay_reg;
+
     // A파트 제어, B파트 Compute 및 PE4 Requant 통합 DUT
     srcnn_group_compute_top dut (
         .clk                       (clk),
@@ -202,102 +209,137 @@ module tb_srcnn_conv1_golden;
             bias_bram_data_i <= bias_mem[bias_bram_addr_o];
     end
 
-    // 지정된 PE Lane의 INT48 accumulator를 즉시 선택
-    function signed [47:0] select_accumulator;
+    // 1 Clock 보관한 INT48 결과에서 지정된 PE Lane을 선택
+    function signed [47:0] select_delayed_accumulator;
         input integer lane_i;
         begin
             case (lane_i)
-                0: select_accumulator = accumulator0_o;
-                1: select_accumulator = accumulator1_o;
-                2: select_accumulator = accumulator2_o;
-                3: select_accumulator = accumulator3_o;
-                default: select_accumulator = 48'sd0;
+                0: select_delayed_accumulator =
+                       accumulator0_delay_reg;
+                1: select_delayed_accumulator =
+                       accumulator1_delay_reg;
+                2: select_delayed_accumulator =
+                       accumulator2_delay_reg;
+                3: select_delayed_accumulator =
+                       accumulator3_delay_reg;
+                default:
+                    select_delayed_accumulator = 48'sd0;
             endcase
         end
     endfunction
 
-    // 실제 Conv1 INT48 결과와 Golden 비교
+    // INT48 결과를 4 Clock 보관한 뒤 Requant Valid 시점에 함께 비교
     always @(posedge clk) begin
         if (!rst_n) begin
-            result_group_count   <= 0;
-            compared_value_count = 0;
+            result_group_count        <= 0;
+            compared_value_count       = 0;
+
+            acc_valid_delay_reg        <= 4'b0000;
+            accumulator0_delay_reg     <= 48'sd0;
+            accumulator1_delay_reg     <= 48'sd0;
+            accumulator2_delay_reg     <= 48'sd0;
+            accumulator3_delay_reg     <= 48'sd0;
         end
-        else if (acc_valid_o) begin
-            if (requant_valid_o !== 1'b1) begin
-                mismatch_count = mismatch_count + 1;
-                $display("[FAIL] Requant Valid is not aligned with Acc Valid");
+        else begin
+            // acc_valid_o를 4 Clock 지연 및 매 클럭 Valid를 4단으로 이동
+            acc_valid_delay_reg <= {acc_valid_delay_reg[2:0], acc_valid_o};
+
+            // 원래 INT48 결과를 Requant 결과가 나올 때까지 보관
+            if (acc_valid_o) begin
+                accumulator0_delay_reg <= accumulator0_o;
+                accumulator1_delay_reg <= accumulator1_o;
+                accumulator2_delay_reg <= accumulator2_o;
+                accumulator3_delay_reg <= accumulator3_o;
             end
-            for (lane = 0; lane < 4; lane = lane + 1) begin
-                if (result_pe_enable_o[lane]) begin
-                    output_channel =
-                        result_out_channel_group_o * 4 + lane;
 
-                    expected_addr =
-                        output_channel * 1024 +
-                        result_y_o * 32 +
-                        result_x_o;
-					
-					// 현재 Lane의 실제 accumulator를 즉시 선택
-                    actual_accumulator =
-                        select_accumulator(lane);
+            // Requant Valid는 Acc Valid보다 정확히 4 Clock 늦어야 함
+            if (requant_valid_o !== acc_valid_delay_reg[3]) begin
+                mismatch_count = mismatch_count + 1;
 
-                    // 현재 PE Lane의 INT16 Requant 결과 선택
-                    case (lane)
-                        0: actual_requant = requant_pe0_o;
-                        1: actual_requant = requant_pe1_o;
-                        2: actual_requant = requant_pe2_o;
-                        3: actual_requant = requant_pe3_o;
-                        default: actual_requant = 16'sd0;
-                    endcase
-
-                    if (actual_accumulator !==
-                        expected_mem[expected_addr]) begin
-
-                        mismatch_count = mismatch_count + 1;
-
-                        if (mismatch_count <= 10) begin
-                            $display(
-                                "[FAIL] oc=%0d y=%0d x=%0d actual=%0d expected=%0d",
-                                output_channel,
-                                result_y_o,
-                                result_x_o,
-                                actual_accumulator,
-                                expected_mem[expected_addr]
-                            );
-                        end
-                    end
-
-                    // 실제 Requant 결과와 Conv1 ReLU Golden 비교
-                    if (actual_requant !==
-                        relu_expected_mem[expected_addr]) begin
-
-                        mismatch_count = mismatch_count + 1;
-
-                        if (mismatch_count <= 10) begin
-                            $display(
-                                "[FAIL][REQUANT] oc=%0d y=%0d x=%0d actual=%0d expected=%0d",
-                                output_channel,
-                                result_y_o,
-                                result_x_o,
-                                actual_requant,
-                                relu_expected_mem[expected_addr]
-                            );
-                        end
-                    end
-
-                    compared_value_count = compared_value_count + 1;
+                if (mismatch_count <= 10) begin
+                    $display(
+                        "[FAIL] Requant Valid pipeline mismatch: requant=%b expected=%b",
+                        requant_valid_o,
+                        acc_valid_delay_reg[3]
+                    );
                 end
             end
 
-            result_group_count <= result_group_count + 1;
+            // 지연된 좌표·Mask·INT48·Requant 결과를 같은 Cycle에 비교
+            if (requant_valid_o) begin
+                for (lane = 0; lane < 4; lane = lane + 1) begin
+                    if (result_pe_enable_o[lane]) begin
+                        output_channel =
+                            result_out_channel_group_o * 4 + lane;
 
-            if ((result_group_count != 0) &&
-                ((result_group_count % 2048) == 0)) begin
-                $display(
-                    "[INFO] Result groups checked: %0d / %0d",
-                    result_group_count,
-                    RESULT_GROUPS
-                );
+                        expected_addr =
+                            output_channel * 1024 +
+                            result_y_o * 32 +
+                            result_x_o;
+
+                        actual_accumulator =
+                            select_delayed_accumulator(lane);
+
+                        case (lane)
+                            0: actual_requant = requant_pe0_o;
+                            1: actual_requant = requant_pe1_o;
+                            2: actual_requant = requant_pe2_o;
+                            3: actual_requant = requant_pe3_o;
+                            default:
+                                actual_requant = 16'sd0;
+                        endcase
+
+                        // 1 Clock 보관한 INT48 결과와 Golden 비교
+                        if (actual_accumulator !==
+                            expected_mem[expected_addr]) begin
+
+                            mismatch_count = mismatch_count + 1;
+
+                            if (mismatch_count <= 10) begin
+                                $display(
+                                    "[FAIL][ACC] oc=%0d y=%0d x=%0d actual=%0d expected=%0d",
+                                    output_channel,
+                                    result_y_o,
+                                    result_x_o,
+                                    actual_accumulator,
+                                    expected_mem[expected_addr]
+                                );
+                            end
+                        end
+
+                        // 등록된 INT16 Requant 결과와 Golden 비교
+                        if (actual_requant !==
+                            relu_expected_mem[expected_addr]) begin
+
+                            mismatch_count = mismatch_count + 1;
+
+                            if (mismatch_count <= 10) begin
+                                $display(
+                                    "[FAIL][REQUANT] oc=%0d y=%0d x=%0d actual=%0d expected=%0d",
+                                    output_channel,
+                                    result_y_o,
+                                    result_x_o,
+                                    actual_requant,
+                                    relu_expected_mem[expected_addr]
+                                );
+                            end
+                        end
+
+                        compared_value_count =
+                            compared_value_count + 1;
+                    end
+                end
+
+                result_group_count <= result_group_count + 1;
+
+                if ((result_group_count != 0) &&
+                    ((result_group_count % 2048) == 0)) begin
+                    $display(
+                        "[INFO] Result groups checked: %0d / %0d",
+                        result_group_count,
+                        RESULT_GROUPS
+                    );
+                end
             end
         end
     end
@@ -337,8 +379,9 @@ module tb_srcnn_conv1_golden;
 
         wait (done_o == 1'b1);
 
-        // 마지막 acc_valid 및 Monitor 갱신 대기
-        repeat (2) @(posedge clk);
+        // 마지막 결과가 4단 Requant Pipeline과 Feature Bank Write를
+        // 모두 통과할 시간을 확보
+        repeat (6) @(posedge clk);
         #1;
 
         // 저장된 Conv1 Feature Map 65,536개를 NCHW 주소 순서로 전수 검사
