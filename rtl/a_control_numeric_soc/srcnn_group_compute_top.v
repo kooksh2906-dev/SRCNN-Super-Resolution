@@ -14,6 +14,9 @@ module srcnn_group_compute_top (
     input  wire [15:0] weight_word_base_addr_i,
     input  wire [15:0] bias_base_addr_i,
 
+	// Layer별 Requant Right Shift 크기
+    input  wire [5:0] requant_shift_i,
+
     // BRAM Read Data
     input  wire signed [15:0] activation_bram_data_i,
     input  wire        [63:0] weight_word_i,
@@ -41,6 +44,13 @@ module srcnn_group_compute_top (
     output wire signed [47:0] accumulator2_o,
     output wire signed [47:0] accumulator3_o,
     output wire               acc_valid_o,
+
+	// Requant, ReLU 및 INT16 Saturation 결과
+    output wire signed [15:0] requant_pe0_o,
+    output wire signed [15:0] requant_pe1_o,
+    output wire signed [15:0] requant_pe2_o,
+    output wire signed [15:0] requant_pe3_o,
+    output wire               requant_valid_o,
 
     // acc_valid_o와 함께 유효한 결과 위치
     output wire [5:0] result_out_channel_group_o,
@@ -85,6 +95,12 @@ module srcnn_group_compute_top (
     wire signed [31:0] bias_pe1_int;
     wire signed [31:0] bias_pe2_int;
     wire signed [31:0] bias_pe3_int;
+
+	// Mask 적용 전 PE별 Requant 결과
+    wire signed [15:0] requant_pe0_int;
+    wire signed [15:0] requant_pe1_int;
+    wire signed [15:0] requant_pe2_int;
+    wire signed [15:0] requant_pe3_int;
 
     // 결과가 나올 때까지 유지할 Output 위치와 PE Mask
     reg [5:0] result_out_channel_group_reg;
@@ -212,6 +228,53 @@ module srcnn_group_compute_top (
         .acc_valid      (acc_valid_o),
         .core_done      (core_done_int)
     );
+
+	// PE0 INT48 결과를 Layer 설정에 맞춰 INT16으로 후처리
+    requant_relu	u_requant_relu_pe0 (
+		// Input Port
+		.acc_i(accumulator0_o),
+		.shift_i(requant_shift_i),
+		// Oupput Port
+		.data_o(requant_pe0_int)
+    );
+
+	// PE1 INT48 결과를 Layer 설정에 맞춰 INT16으로 후처리
+    requant_relu	u_requant_relu_pe1 (
+		// Input Port
+		.acc_i(accumulator1_o),
+		.shift_i(requant_shift_i),
+		// Oupput Port
+		.data_o(requant_pe1_int)
+    );
+
+	// PE2 INT48 결과를 Layer 설정에 맞춰 INT16으로 후처리
+    requant_relu	u_requant_relu_pe2 (
+		// Input Port
+		.acc_i(accumulator2_o),
+		.shift_i(requant_shift_i),
+		// Oupput Port
+		.data_o(requant_pe2_int)
+    );
+
+	// PE3 INT48 결과를 Layer 설정에 맞춰 INT16으로 후처리
+    requant_relu	u_requant_relu_pe3 (
+		// Input Port
+		.acc_i(accumulator3_o),
+		.shift_i(requant_shift_i),
+		// Oupput Port
+		.data_o(requant_pe3_int)
+    );
+
+	// 비활성 PE는 이전 연산값이 외부로 전달되지 않도록 0으로 Mask
+	// 저장된 결과 PE Mask의 각 비트로 내부 Requant 결과 선택
+    assign requant_pe0_o = result_pe_enable_reg[0]? requant_pe0_int: 16'sd0;
+    assign requant_pe1_o = result_pe_enable_reg[1]? requant_pe1_int: 16'sd0;
+    assign requant_pe2_o = result_pe_enable_reg[2]? requant_pe2_int: 16'sd0;
+    assign requant_pe3_o = result_pe_enable_reg[3]? requant_pe3_int: 16'sd0;
+	
+	// Requant는 조합논리이므로 INT48 결과와 같은 Cycle에 유효
+	// B파트 결과 Valid를 Requant 결과 Valid로 전달
+    assign requant_valid_o = acc_valid_o;
 
     // Bias Load 시점의 Output 위치와 PE Mask를 결과 완료까지 유지
     always @(posedge clk) begin

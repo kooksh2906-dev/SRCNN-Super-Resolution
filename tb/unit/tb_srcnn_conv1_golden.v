@@ -19,6 +19,7 @@ module tb_srcnn_conv1_golden;
     reg [3:0]  pad_i;
     reg [15:0] weight_word_base_addr_i;
     reg [15:0] bias_base_addr_i;
+    reg [5:0] requant_shift_i;
 
     reg signed [15:0] activation_bram_data_i;
     reg        [63:0] weight_word_i;
@@ -40,6 +41,12 @@ module tb_srcnn_conv1_golden;
     wire signed [47:0] accumulator3_o;
     wire               acc_valid_o;
 
+    wire signed [15:0] requant_pe0_o;
+    wire signed [15:0] requant_pe1_o;
+    wire signed [15:0] requant_pe2_o;
+    wire signed [15:0] requant_pe3_o;
+    wire               requant_valid_o;
+
     wire [5:0] result_out_channel_group_o;
     wire [4:0] result_y_o;
     wire [4:0] result_x_o;
@@ -49,6 +56,7 @@ module tb_srcnn_conv1_golden;
     reg        [63:0] weight_mem     [0:WEIGHT_COUNT-1];
     reg signed [31:0] bias_mem       [0:BIAS_COUNT-1];
     reg signed [47:0] expected_mem   [0:EXPECTED_COUNT-1];
+    reg signed [15:0] relu_expected_mem [0:EXPECTED_COUNT-1];
 
     integer result_group_count;
     integer compared_value_count;
@@ -58,6 +66,7 @@ module tb_srcnn_conv1_golden;
     integer expected_addr;
 
     reg signed [47:0] actual_accumulator;
+    reg signed [15:0] actual_requant;
 
     srcnn_group_compute_top dut (
         .clk                       (clk),
@@ -71,6 +80,7 @@ module tb_srcnn_conv1_golden;
         .pad_i                     (pad_i),
         .weight_word_base_addr_i   (weight_word_base_addr_i),
         .bias_base_addr_i          (bias_base_addr_i),
+        .requant_shift_i           (requant_shift_i),
 
         .activation_bram_data_i    (activation_bram_data_i),
         .weight_word_i             (weight_word_i),
@@ -91,6 +101,12 @@ module tb_srcnn_conv1_golden;
         .accumulator2_o            (accumulator2_o),
         .accumulator3_o            (accumulator3_o),
         .acc_valid_o               (acc_valid_o),
+
+        .requant_pe0_o             (requant_pe0_o),
+        .requant_pe1_o             (requant_pe1_o),
+        .requant_pe2_o             (requant_pe2_o),
+        .requant_pe3_o             (requant_pe3_o),
+        .requant_valid_o           (requant_valid_o),
 
         .result_out_channel_group_o(result_out_channel_group_o),
         .result_y_o                (result_y_o),
@@ -121,6 +137,12 @@ module tb_srcnn_conv1_golden;
             "data/single_tile/conv1_acc_expected.hex",
             expected_mem
         );
+
+        $readmemh(
+            "data/single_tile/relu1_expected.hex",
+            relu_expected_mem
+        );
+
     end
 
     // 1-Clock Activation BRAM
@@ -169,6 +191,10 @@ module tb_srcnn_conv1_golden;
             compared_value_count = 0;
         end
         else if (acc_valid_o) begin
+            if (requant_valid_o !== 1'b1) begin
+                mismatch_count = mismatch_count + 1;
+                $display("[FAIL] Requant Valid is not aligned with Acc Valid");
+            end
             for (lane = 0; lane < 4; lane = lane + 1) begin
                 if (result_pe_enable_o[lane]) begin
                     output_channel =
@@ -183,6 +209,15 @@ module tb_srcnn_conv1_golden;
                     actual_accumulator =
                         select_accumulator(lane);
 
+                    // 현재 PE Lane의 INT16 Requant 결과 선택
+                    case (lane)
+                        0: actual_requant = requant_pe0_o;
+                        1: actual_requant = requant_pe1_o;
+                        2: actual_requant = requant_pe2_o;
+                        3: actual_requant = requant_pe3_o;
+                        default: actual_requant = 16'sd0;
+                    endcase
+
                     if (actual_accumulator !==
                         expected_mem[expected_addr]) begin
 
@@ -196,6 +231,24 @@ module tb_srcnn_conv1_golden;
                                 result_x_o,
                                 actual_accumulator,
                                 expected_mem[expected_addr]
+                            );
+                        end
+                    end
+
+                    // 실제 Requant 결과와 Conv1 ReLU Golden 비교
+                    if (actual_requant !==
+                        relu_expected_mem[expected_addr]) begin
+
+                        mismatch_count = mismatch_count + 1;
+
+                        if (mismatch_count <= 10) begin
+                            $display(
+                                "[FAIL][REQUANT] oc=%0d y=%0d x=%0d actual=%0d expected=%0d",
+                                output_channel,
+                                result_y_o,
+                                result_x_o,
+                                actual_requant,
+                                relu_expected_mem[expected_addr]
                             );
                         end
                     end
@@ -234,6 +287,9 @@ module tb_srcnn_conv1_golden;
         weight_word_base_addr_i = 16'd0;
         bias_base_addr_i        = 16'd0;
 
+        // Conv1 Acc F29를 Output F15로 변환
+        requant_shift_i = 6'd14;
+
         repeat (3) @(negedge clk);
         rst_n = 1'b1;
 
@@ -266,9 +322,9 @@ module tb_srcnn_conv1_golden;
         if ((result_group_count == RESULT_GROUPS) &&
             (compared_value_count == EXPECTED_COUNT) &&
             (mismatch_count == 0))
-            $display("[PASS] Conv1 INT48 Golden mismatch = 0");
+            $display("[PASS] Conv1 INT48 and Requant Golden mismatch = 0");
         else
-            $display("[FAIL] Conv1 INT48 Golden test failed");
+            $display("[FAIL] Conv1 INT48/Requant Golden test failed");
 
         $display("========================================");
 
