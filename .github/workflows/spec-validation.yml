@@ -1,0 +1,38 @@
+name: Spec validation
+
+on:
+  pull_request:
+    paths:
+      - "spec/**"
+      - ".github/workflows/spec-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate JSON specifications
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in spec/*.json; do
+            python -m json.tool "$file" >/dev/null
+          done
+      - name: Validate Markdown code fences
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          invalid = []
+          for path in Path("spec").glob("*.md"):
+              if path.read_text(encoding="utf-8").count("```") % 2:
+                  invalid.append(str(path))
+
+          if invalid:
+              raise SystemExit("Unbalanced Markdown code fences: " + ", ".join(invalid))
+          PY
