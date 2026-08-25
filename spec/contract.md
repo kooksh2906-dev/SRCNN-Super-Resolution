@@ -111,3 +111,4 @@ Activation은 NCHW 순서의 signed INT16 데이터이다.
 
 ```text
 activation_addr = channel × 1024 + y × 32 + x
+```
