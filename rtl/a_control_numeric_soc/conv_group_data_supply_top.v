@@ -78,7 +78,7 @@ module conv_group_data_supply_top (
     // MAC 처리 시 Index Counter를 한 좌표 증가
     wire advance_int;
 
-    // Bias Loader 시작 Pulse
+    // Bias Loader 및 Weight 주소 Stream 시작 Pulse
     wire bias_fetch_start_int;
 
     // Activation/Weight BRAM 동시 읽기 Enable
@@ -92,6 +92,10 @@ module conv_group_data_supply_top (
 
     // 현재 Group 좌표로 계산한 PE Enable
     wire [3:0] pe_enable_comb;
+
+    // Packed Weight Supply의 기존 조합 주소 출력은 사용하지 않음
+    // 연결을 유지하되 Fanout을 없애 합성 시 긴 주소 계산 회로가 제거되게 함
+    wire [15:0] unused_weight_word_addr_int;
 
     // B파트 결과가 나올 때까지 유지할 PE Enable
     reg  [3:0] pe_enable_reg;
@@ -160,7 +164,8 @@ module conv_group_data_supply_top (
         .activation_addr_o (activation_bram_addr_o)
     );
 
-     // 64-bit Weight Word를 읽고 PE0~PE3의 INT16 Weight로 분리
+    // 64-bit Weight Word를 읽고 PE0~PE3의 INT16 Weight로 분리
+    // 기존 조합 주소 출력은 사용하지 않고 PE Mask와 Weight 분리만 사용
     packed_weight_supply u_packed_weight_supply (
         // Input Port
         .out_channel_group_i    (out_channel_group_o),
@@ -173,12 +178,24 @@ module conv_group_data_supply_top (
         .weight_word_base_addr_i(weight_word_base_addr_i),
         .weight_word_i          (weight_word_i),
         // Output Port
-        .weight_word_addr_o     (weight_word_addr_o),
+        .weight_word_addr_o     (unused_weight_word_addr_int),
         .pe_enable_o            (pe_enable_comb),
         .weight_pe0_o           (weight_pe0_o),
         .weight_pe1_o           (weight_pe1_o),
         .weight_pe2_o           (weight_pe2_o),
         .weight_pe3_o           (weight_pe3_o)
+    );
+
+    // Group 시작 주소를 등록하고 각 ROM Read마다 1씩 증가
+    // Registered 주소를 ROM에 직접 연결해 긴 곱셈·덧셈 Setup 경로를 제거
+    weight_stream_addr_gen u_weight_stream_addr_gen (
+        .clk                    (clk),
+        .rst_n                  (rst_n),
+        .sequence_start_i       (bias_fetch_start_int),
+        .read_en_i              (data_read_en_int),
+        .out_channel_group_i    (out_channel_group_o),
+        .weight_word_base_addr_i(weight_word_base_addr_i),
+        .weight_word_addr_o     (weight_word_addr_o)
     );
 
     // 현재 Output Channel Group에 필요한 Bias를 순서대로 읽어 저장
@@ -209,10 +226,9 @@ module conv_group_data_supply_top (
 
     // Padding 좌표는 BRAM 데이터 대신 signed 16-bit 0을 B파트에 전달
     // padding_o가 1이면 0, 아니면 activation_bram_data_i 선택
-    assign activation_o = padding_o? 16'sd0: activation_bram_data_i;
+    assign activation_o = padding_o ? 16'sd0 : activation_bram_data_i;
 
     // 연산 시작 시 저장한 PE Mask를 B파트에 전달
-    // 유지 레지스터를 최종 출력에 연결
     assign pe_enable_o = pe_enable_reg;
 
     // B파트 결과가 나올 때까지 현재 Group의 PE Mask를 유지
