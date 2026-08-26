@@ -14,6 +14,9 @@ module tb_srcnn_group_compute_top;
     reg [15:0] weight_word_base_addr_i;
     reg [15:0] bias_base_addr_i;
 
+    // 4단 Requant Pipeline 설정
+    reg [5:0] requant_shift_i;
+
     reg signed [15:0] activation_bram_data_i;
     reg        [63:0] weight_word_i;
     reg signed [31:0] bias_bram_data_i;
@@ -36,6 +39,12 @@ module tb_srcnn_group_compute_top;
     wire signed [47:0] accumulator3_o;
     wire               acc_valid_o;
 
+    wire signed [15:0] requant_pe0_o;
+    wire signed [15:0] requant_pe1_o;
+    wire signed [15:0] requant_pe2_o;
+    wire signed [15:0] requant_pe3_o;
+    wire               requant_valid_o;
+
     wire [5:0] result_out_channel_group_o;
     wire [4:0] result_y_o;
     wire [4:0] result_x_o;
@@ -43,6 +52,7 @@ module tb_srcnn_group_compute_top;
 
     integer result_count;
     integer error_count;
+    integer requant_result_count;
 
     srcnn_group_compute_top dut (
         .clk                       (clk),
@@ -56,6 +66,7 @@ module tb_srcnn_group_compute_top;
         .pad_i                     (pad_i),
         .weight_word_base_addr_i   (weight_word_base_addr_i),
         .bias_base_addr_i          (bias_base_addr_i),
+        .requant_shift_i           (requant_shift_i),
 
         .activation_bram_data_i    (activation_bram_data_i),
         .weight_word_i             (weight_word_i),
@@ -78,6 +89,12 @@ module tb_srcnn_group_compute_top;
         .accumulator2_o            (accumulator2_o),
         .accumulator3_o            (accumulator3_o),
         .acc_valid_o               (acc_valid_o),
+
+        .requant_pe0_o             (requant_pe0_o),
+        .requant_pe1_o             (requant_pe1_o),
+        .requant_pe2_o             (requant_pe2_o),
+        .requant_pe3_o             (requant_pe3_o),
+        .requant_valid_o           (requant_valid_o),
 
         .result_out_channel_group_o(result_out_channel_group_o),
         .result_y_o                (result_y_o),
@@ -137,7 +154,8 @@ module tb_srcnn_group_compute_top;
         end
     end
 
-    // 실제 B파트의 Group별 INT48 결과 검사
+    // B파트의 원본 INT48 결과 검사
+    // 결과 위치와 PE Mask는 Requant Valid 시점에 별도로 검사한다.
     always @(posedge clk) begin
         if (!rst_n) begin
             result_count <= 0;
@@ -145,11 +163,7 @@ module tb_srcnn_group_compute_top;
         else if (acc_valid_o) begin
             case (result_count)
                 0: begin
-                    if ((result_out_channel_group_o !== 6'd0) ||
-                        (result_y_o !== 5'd0) ||
-                        (result_x_o !== 5'd0) ||
-                        (result_pe_enable_o !== 4'b1111) ||
-                        (accumulator0_o !== 48'sd18017) ||
+                    if ((accumulator0_o !== 48'sd18017) ||
                         (accumulator1_o !== 48'sd20326) ||
                         (accumulator2_o !== 48'sd22635) ||
                         (accumulator3_o !== 48'sd24944)) begin
@@ -157,10 +171,7 @@ module tb_srcnn_group_compute_top;
                         error_count = error_count + 1;
 
                         $display(
-                            "[FAIL] Group 0: pos=(%0d,%0d) mask=%b acc=%0d,%0d,%0d,%0d",
-                            result_y_o,
-                            result_x_o,
-                            result_pe_enable_o,
+                            "[FAIL][ACC] Group 0: acc=%0d,%0d,%0d,%0d",
                             accumulator0_o,
                             accumulator1_o,
                             accumulator2_o,
@@ -169,8 +180,7 @@ module tb_srcnn_group_compute_top;
                     end
                     else begin
                         $display(
-                            "[PASS] Group 0: mask=%b acc=%0d,%0d,%0d,%0d",
-                            result_pe_enable_o,
+                            "[PASS][ACC] Group 0: acc=%0d,%0d,%0d,%0d",
                             accumulator0_o,
                             accumulator1_o,
                             accumulator2_o,
@@ -180,27 +190,18 @@ module tb_srcnn_group_compute_top;
                 end
 
                 1: begin
-                    // Group 1에서는 PE0만 유효하므로 PE1~PE3는 채점 제외
-                    if ((result_out_channel_group_o !== 6'd1) ||
-                        (result_y_o !== 5'd0) ||
-                        (result_x_o !== 5'd0) ||
-                        (result_pe_enable_o !== 4'b0001) ||
-                        (accumulator0_o !== 48'sd593665)) begin
-
+                    // Group 1에서는 PE0만 활성
+                    if (accumulator0_o !== 48'sd593665) begin
                         error_count = error_count + 1;
 
                         $display(
-                            "[FAIL] Group 1: pos=(%0d,%0d) mask=%b acc0=%0d",
-                            result_y_o,
-                            result_x_o,
-                            result_pe_enable_o,
+                            "[FAIL][ACC] Group 1: acc0=%0d",
                             accumulator0_o
                         );
                     end
                     else begin
                         $display(
-                            "[PASS] Group 1: mask=%b acc0=%0d",
-                            result_pe_enable_o,
+                            "[PASS][ACC] Group 1: acc0=%0d",
                             accumulator0_o
                         );
                     end
@@ -213,6 +214,88 @@ module tb_srcnn_group_compute_top;
             endcase
 
             result_count <= result_count + 1;
+        end
+    end
+
+    // 4단 Requant Pipeline 결과와 함께 좌표·PE Mask 검사
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            requant_result_count <= 0;
+        end
+        else if (requant_valid_o) begin
+            case (requant_result_count)
+                0: begin
+                    // shift=0이므로 Group 0의 양수 결과는 그대로 출력
+                    if ((result_out_channel_group_o !== 6'd0) ||
+                        (result_y_o !== 5'd0) ||
+                        (result_x_o !== 5'd0) ||
+                        (result_pe_enable_o !== 4'b1111) ||
+                        (requant_pe0_o !== 16'sd18017) ||
+                        (requant_pe1_o !== 16'sd20326) ||
+                        (requant_pe2_o !== 16'sd22635) ||
+                        (requant_pe3_o !== 16'sd24944)) begin
+
+                        error_count = error_count + 1;
+
+                        $display(
+                            "[FAIL][REQUANT] Group 0: group=%0d pos=(%0d,%0d) mask=%b data=%0d,%0d,%0d,%0d",
+                            result_out_channel_group_o,
+                            result_y_o,
+                            result_x_o,
+                            result_pe_enable_o,
+                            requant_pe0_o,
+                            requant_pe1_o,
+                            requant_pe2_o,
+                            requant_pe3_o
+                        );
+                    end
+                    else begin
+                        $display(
+                            "[PASS][REQUANT] Group 0: mask=%b data=%0d,%0d,%0d,%0d",
+                            result_pe_enable_o,
+                            requant_pe0_o,
+                            requant_pe1_o,
+                            requant_pe2_o,
+                            requant_pe3_o
+                        );
+                    end
+                end
+
+                1: begin
+                    // 593665는 INT16 최대값보다 크므로 32767로 Saturation
+                    if ((result_out_channel_group_o !== 6'd1) ||
+                        (result_y_o !== 5'd0) ||
+                        (result_x_o !== 5'd0) ||
+                        (result_pe_enable_o !== 4'b0001) ||
+                        (requant_pe0_o !== 16'sd32767)) begin
+
+                        error_count = error_count + 1;
+
+                        $display(
+                            "[FAIL][REQUANT] Group 1: group=%0d pos=(%0d,%0d) mask=%b data0=%0d",
+                            result_out_channel_group_o,
+                            result_y_o,
+                            result_x_o,
+                            result_pe_enable_o,
+                            requant_pe0_o
+                        );
+                    end
+                    else begin
+                        $display(
+                            "[PASS][REQUANT] Group 1: mask=%b data0=%0d",
+                            result_pe_enable_o,
+                            requant_pe0_o
+                        );
+                    end
+                end
+
+                default: begin
+                    error_count = error_count + 1;
+                    $display("[FAIL] Unexpected extra Requant result");
+                end
+            endcase
+
+            requant_result_count <= requant_result_count + 1;
         end
     end
 
@@ -233,6 +316,9 @@ module tb_srcnn_group_compute_top;
         weight_word_base_addr_i = 16'd100;
         bias_base_addr_i = 16'd200;
 
+        // 정수 결과를 직접 비교하기 위해 Shift 없이 Requant
+        requant_shift_i = 6'd0;
+
         repeat (3) @(negedge clk);
         rst_n = 1'b1;
 
@@ -244,25 +330,26 @@ module tb_srcnn_group_compute_top;
 
         wait (done_o == 1'b1);
 
-        // 마지막 acc_valid Monitor 갱신 대기
-        @(posedge clk);
+        // 마지막 INT48 결과가 4단 Requant Pipeline까지 통과할 시간 확보
+        repeat (6) @(posedge clk);
         #1;
 
         if (result_count !== 2) begin
             error_count = error_count + 1;
             $display(
-                "[FAIL] Result count: expected=2 actual=%0d",
-                result_count
+                "[FAIL] Requant result count: expected=2 actual=%0d",
+                requant_result_count
             );
         end
         else begin
-            $display("[PASS] Result count = 2");
+            $display("[PASS] Requant result count = 2");
         end
 
         $display("========================================");
         $display("A+B Integrated Compute Test Completed");
         $display("result_count = %0d", result_count);
         $display("error_count  = %0d", error_count);
+        $display("requant_result_count = %0d", requant_result_count);
 
         if (error_count == 0)
             $display("[PASS] All A+B integration checks passed");

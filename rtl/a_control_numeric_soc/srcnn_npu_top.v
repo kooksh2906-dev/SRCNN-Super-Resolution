@@ -103,11 +103,10 @@ module srcnn_npu_top (
     wire bank_a_write_valid_int;
     wire bank_b_write_valid_int;
 
-	// Requant 4단 Pipeline과 동일하게 Layer 완료를 지연
-    reg [3:0] compute_done_pipe_reg;
-
-    // 결과 발생 당시 Feature Write Bank도 4 Clock 지연
-    reg [3:0] feature_write_bank_pipe_reg;
+    // Activation 입력 1단 + Requant 4단 Pipeline 배출 시간만큼
+    // Layer 완료와 Feature Bank 선택을 총 5클럭 유지
+    reg [4:0] compute_done_pipe_reg;
+    reg [4:0] feature_write_bank_pipe_reg;
 
     // Conv1 → Conv2 → Conv3 실행 순서와 고정 설정값 관리
     srcnn_layer_controller u_srcnn_layer_controller (
@@ -115,7 +114,9 @@ module srcnn_npu_top (
         .clk                    (clk),
         .rst_n                  (rst_n),
         .start_i                (start_i),
-        .layer_done_i           (compute_done_pipe_reg[3]),
+
+        // 마지막 Requant 결과가 저장된 후 Layer 전환
+        .layer_done_i           (compute_done_pipe_reg[4]),
 
         // Output Port
         .layer_start_o          (layer_start_int),
@@ -187,19 +188,18 @@ module srcnn_npu_top (
         .result_pe_enable_o        (result_pe_enable_int)
     );
 
-	// Requant 결과와 Layer 완료 및 Feature Bank 선택을 4 Clock 정렬
+    // Compute 완료 Pulse와 결과 저장 Bank 선택을 Pipeline 지연에 맞춰 전달
     always @(posedge clk) begin
         if (!rst_n) begin
-            compute_done_pipe_reg        <= 4'b0000;
-            feature_write_bank_pipe_reg  <= 4'b0000;
+            compute_done_pipe_reg       <= 5'b00000;
+            feature_write_bank_pipe_reg <= 5'b00000;
         end
         else begin
-            // 최신 값은 bit0에 넣고 매 Clock bit3 방향으로 이동
             compute_done_pipe_reg
-                <= {compute_done_pipe_reg[2:0], compute_done_int};
+                <= {compute_done_pipe_reg[3:0], compute_done_int};
 
             feature_write_bank_pipe_reg
-                <= {feature_write_bank_pipe_reg[2:0],
+                <= {feature_write_bank_pipe_reg[3:0],
                     feature_write_bank_int};
         end
     end
@@ -304,14 +304,16 @@ module srcnn_npu_top (
         endcase
     end
 
-    // Requant 결과와 같은 4 Clock을 이동한 Bank 선택값 사용
+    // Conv1과 Conv3 결과는 Feature Bank A에 저장
+    // 결과 발생 당시의 Bank 선택을 5클럭 지연하여 사용
     assign bank_a_write_valid_int =
         requant_valid_int &&
-        (feature_write_bank_pipe_reg[3] == 1'b0);
+        (feature_write_bank_pipe_reg[4] == 1'b0);
 
+    // Conv2 결과는 Feature Bank B에 저장
     assign bank_b_write_valid_int =
         requant_valid_int &&
-        (feature_write_bank_pipe_reg[3] == 1'b1);
+        (feature_write_bank_pipe_reg[4] == 1'b1);
 
     // 전체 SRCNN 완료 후 Bank A의 Conv3 INT16 결과를 외부로 전달
     assign final_read_data_o = bank_a_read_data_int;

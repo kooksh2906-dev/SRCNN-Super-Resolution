@@ -91,10 +91,31 @@ module srcnn_group_compute_top (
     wire signed [15:0] weight_pe2_int;
     wire signed [15:0] weight_pe3_int;
 
+    // Feature Bank와 Weight Supply에서 읽은 MAC 입력을 1 Clock 저장
+    // BRAM → 선택 LUT → DSP48로 이어지던 경로를 Register로 분리
+    reg                     mac_valid_core_reg;
+    reg                     mac_last_core_reg;
+
+    reg signed [15:0]       activation_core_reg;
+    reg signed [15:0]       weight_pe0_core_reg;
+    reg signed [15:0]       weight_pe1_core_reg;
+    reg signed [15:0]       weight_pe2_core_reg;
+    reg signed [15:0]       weight_pe3_core_reg;
+
     wire signed [31:0] bias_pe0_int;
     wire signed [31:0] bias_pe1_int;
     wire signed [31:0] bias_pe2_int;
     wire signed [31:0] bias_pe3_int;
+
+    // Output 연산 단위 제어 신호도 MAC 입력과 동일하게 1 Clock 지연
+    reg                     op_start_core_reg;
+    reg                     bias_load_core_reg;
+
+    // 지연된 Bias Load와 함께 사용할 PE별 Bias
+    reg signed [31:0]       bias_pe0_core_reg;
+    reg signed [31:0]       bias_pe1_core_reg;
+    reg signed [31:0]       bias_pe2_core_reg;
+    reg signed [31:0]       bias_pe3_core_reg;
 
 	// Mask 적용 전 PE별 Requant 결과
     wire signed [15:0] requant_pe0_int;
@@ -212,6 +233,60 @@ module srcnn_group_compute_top (
         .bias_pe3_o               (bias_pe3_int)
     );
 
+    // -------------------------------------------------------------------------
+    // A파트에서 B파트로 전달하는 1단 입력 Pipeline
+    //
+    // op_start, bias_load, MAC 데이터 및 제어를 모두 1 Clock 지연하여
+    // A파트의 다음 상태 전환과 관계없이 B파트가 현재 Output 연산의
+    // PE Mask·Bias·Activation·Weight를 끝까지 유지하도록 한다.
+    // -------------------------------------------------------------------------
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            op_start_core_reg    <= 1'b0;
+            bias_load_core_reg   <= 1'b0;
+            mac_valid_core_reg   <= 1'b0;
+            mac_last_core_reg    <= 1'b0;
+
+            activation_core_reg  <= 16'sd0;
+            weight_pe0_core_reg  <= 16'sd0;
+            weight_pe1_core_reg  <= 16'sd0;
+            weight_pe2_core_reg  <= 16'sd0;
+            weight_pe3_core_reg  <= 16'sd0;
+
+            bias_pe0_core_reg    <= 32'sd0;
+            bias_pe1_core_reg    <= 32'sd0;
+            bias_pe2_core_reg    <= 32'sd0;
+            bias_pe3_core_reg    <= 32'sd0;
+        end
+        else begin
+            // 연산 제어 Pulse를 모두 1 Clock 지연
+            op_start_core_reg  <= op_start_int;
+            bias_load_core_reg <= bias_load_int;
+            mac_valid_core_reg <= mac_valid_int;
+
+            // mac_last는 유효한 MAC과 함께 들어올 때만 전달
+            mac_last_core_reg
+                <= mac_valid_int && mac_last_int;
+
+            // Bias Load Pulse와 Bias 데이터를 같은 Pipeline 단계에 저장
+            if (bias_load_int) begin
+                bias_pe0_core_reg <= bias_pe0_int;
+                bias_pe1_core_reg <= bias_pe1_int;
+                bias_pe2_core_reg <= bias_pe2_int;
+                bias_pe3_core_reg <= bias_pe3_int;
+            end
+
+            // 유효한 MAC 데이터가 들어올 때만 입력 Register 갱신
+            if (mac_valid_int) begin
+                activation_core_reg <= activation_int;
+                weight_pe0_core_reg <= weight_pe0_int;
+                weight_pe1_core_reg <= weight_pe1_int;
+                weight_pe2_core_reg <= weight_pe2_int;
+                weight_pe3_core_reg <= weight_pe3_int;
+            end
+        end
+    end
+
     // A파트가 공급한 데이터로 4개 Output Channel을 병렬 연산
     srcnn_compute_core u_srcnn_compute_core (
 		// Input Port
@@ -220,28 +295,28 @@ module srcnn_group_compute_top (
         .rst_n          (rst_n),
 
         // A파트가 생성한 연산 제어 신호
-        .op_start       (op_start_int),
-        .bias_load      (bias_load_int),
-        .mac_valid      (mac_valid_int),
-        .mac_last       (mac_last_int),
+        .op_start       (op_start_core_reg),
+        .bias_load      (bias_load_core_reg),
+        .mac_valid      (mac_valid_core_reg),
+        .mac_last       (mac_last_core_reg),
 
         // 현재 Output Channel Group의 PE Mask
         .pe_enable      (pe_enable_int),
 
         // 공통 Activation
-        .activation     (activation_int),
+        .activation     (activation_core_reg),
 
         // PE0~PE3 Weight
-        .weight0        (weight_pe0_int),
-        .weight1        (weight_pe1_int),
-        .weight2        (weight_pe2_int),
-        .weight3        (weight_pe3_int),
+        .weight0        (weight_pe0_core_reg),
+        .weight1        (weight_pe1_core_reg),
+        .weight2        (weight_pe2_core_reg),
+        .weight3        (weight_pe3_core_reg),
 
         // PE0~PE3 Bias
-        .bias0          (bias_pe0_int),
-        .bias1          (bias_pe1_int),
-        .bias2          (bias_pe2_int),
-        .bias3          (bias_pe3_int),
+        .bias0          (bias_pe0_core_reg),
+        .bias1          (bias_pe1_core_reg),
+        .bias2          (bias_pe2_core_reg),
+        .bias3          (bias_pe3_core_reg),
 
 		// Output Port
         // PE0~PE3 INT48 누산 결과를 외부 출력에 연결
