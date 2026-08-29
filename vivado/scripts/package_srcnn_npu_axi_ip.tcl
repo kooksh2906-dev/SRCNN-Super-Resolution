@@ -191,8 +191,8 @@ puts "IP_INTEGRITY_RESULT=$integrity_result"
 ipx::save_core $core
 
 # Weight/Bias ROM은 basename을 사용해 readmemh를 수행한다.
-# 팀원 B의 Rev4 IP와 동일하게 두 초기화 파일을 Packaged IP의
-# RTL Source 디렉터리에 함께 배치한다.
+# 두 초기화 파일을 Packaged IP의 RTL Source 디렉터리에 함께
+# 배치하여 합성 및 구현 단계에서도 같은 basename을 유지한다.
 set packaged_mem_init_dir [file join $ip_root src]
 file mkdir $packaged_mem_init_dir
 
