@@ -1,0 +1,96 @@
+[
+  {
+    "output": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\full_image_rtl_data\\input_tiles.hex",
+    "bits": 16,
+    "hex_digits": 4,
+    "shape": [
+      256,
+      1,
+      32,
+      32
+    ],
+    "count": 262144,
+    "minimum": 0,
+    "maximum": 29906,
+    "sha256": "2c0cb2ec8b1494c2deab3ef42fea2d2a2157f67f0e0dc134951e4d39758fa55a",
+    "round_trip_verified": true,
+    "role": "All NPU input Tiles; tile_id -> channel -> y -> x",
+    "address_formula": "addr = tile_id*1024 + y*32 + x",
+    "order": "NumPy C-order / row-major"
+  },
+  {
+    "output": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\full_image_rtl_data\\tile_valid_masks.hex",
+    "bits": 8,
+    "hex_digits": 2,
+    "shape": [
+      256,
+      1,
+      32,
+      32
+    ],
+    "count": 262144,
+    "minimum": 0,
+    "maximum": 1,
+    "sha256": "45bde77b6609c81cda9fdfe2b6bda6a05ea26ab69368fcee811acf69192d9598",
+    "round_trip_verified": true,
+    "role": "Global image boundary mask applied after Conv1 and Conv2 post-processing",
+    "address_formula": "addr = tile_id*1024 + local_y*32 + local_x",
+    "order": "NumPy C-order / row-major"
+  },
+  {
+    "output": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\full_image_rtl_data\\output_tiles_expected.hex",
+    "bits": 16,
+    "hex_digits": 4,
+    "shape": [
+      256,
+      1,
+      32,
+      32
+    ],
+    "count": 262144,
+    "minimum": 0,
+    "maximum": 31255,
+    "sha256": "573fdc1659ee86a06d2531f0fa64353e8ea9daae874570647a9c6335e6b32fcd",
+    "round_trip_verified": true,
+    "role": "All complete 32x32 NPU output Tiles",
+    "address_formula": "addr = tile_id*1024 + y*32 + x",
+    "order": "NumPy C-order / row-major"
+  },
+  {
+    "output": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\full_image_rtl_data\\output_valid_expected.hex",
+    "bits": 16,
+    "hex_digits": 4,
+    "shape": [
+      256,
+      1,
+      16,
+      16
+    ],
+    "count": 65536,
+    "minimum": 3840,
+    "maximum": 30666,
+    "sha256": "75d7f833e23e05f9745bb23e99d2178e3c2e7c5dfe5bd353c015498b336a0e91",
+    "round_trip_verified": true,
+    "role": "All center 16x16 UART response payloads",
+    "address_formula": "addr = tile_id*256 + valid_y*16 + valid_x",
+    "order": "NumPy C-order / row-major"
+  },
+  {
+    "output": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\full_image_rtl_data\\output_merged_expected.hex",
+    "bits": 16,
+    "hex_digits": 4,
+    "shape": [
+      1,
+      256,
+      256
+    ],
+    "count": 65536,
+    "minimum": 3840,
+    "maximum": 30666,
+    "sha256": "1cf21b75deefe3e2b809f5a710cf630e81483f158fdd3f708e1b40fa280a8b47",
+    "round_trip_verified": true,
+    "role": "Merged 256x256 Python INT16 Golden image",
+    "address_formula": "addr = y*256 + x",
+    "order": "NumPy C-order / row-major"
+  }
+]

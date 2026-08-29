@@ -1,0 +1,209 @@
+{
+  "model": "SRCNN x2 9-5-5",
+  "input_shape": [
+    1,
+    1,
+    256,
+    256
+  ],
+  "int16_output_shape": [
+    1,
+    256,
+    256
+  ],
+  "int16_scale": 32768,
+  "hashes": {
+    "input_y_f32": "0471354263aa0c6c2db2b215e031851ba739c13ab4c88d8cae5a8fd56b3d6dfc",
+    "fp32_output": "4efc39e51efc4df0cd69af9244adafb5b6947f1457242f130b5f6c10c71ed668",
+    "int16_output": "4c43404c8fee5e25749b4bb785cb326b513e7509f7709efd423dbbf0d53592a3"
+  },
+  "timing": {
+    "fp32": {
+      "device": "cpu",
+      "warmup_runs": 0,
+      "measured_runs": 1,
+      "minimum_seconds": 0.030152100000123028,
+      "maximum_seconds": 0.030152100000123028,
+      "mean_seconds": 0.030152100000123028,
+      "median_seconds": 0.030152100000123028,
+      "all_seconds": [
+        0.030152100000123028
+      ]
+    },
+    "python_int16_tiled_golden_seconds": 6.1119103999999425,
+    "note": "Python timing is not FPGA latency."
+  },
+  "fp32_layer_ranges_and_quantization_risk": {
+    "input": {
+      "minimum": 0.13770467042922974,
+      "maximum": 0.9126718044281006
+    },
+    "relu1_f15": {
+      "minimum": 0.0,
+      "maximum": 0.8477939963340759,
+      "representable_maximum": 0.999969482421875,
+      "values_above_representable_maximum": 0
+    },
+    "relu2_f14": {
+      "minimum": 0.0,
+      "maximum": 2.5642690658569336,
+      "representable_maximum": 1.99993896484375,
+      "values_above_representable_maximum": 372
+    },
+    "conv3_before_clamp": {
+      "minimum": 0.11714615672826767,
+      "maximum": 0.93509840965271,
+      "values_below_zero": 0,
+      "values_above_one": 0
+    }
+  },
+  "quality_summary_full_image": {
+    "bicubic_psnr_db": 27.50091090525848,
+    "fp32_psnr_db": 32.631697598840375,
+    "int16_psnr_db": 32.60863412826208,
+    "fp32_improvement_over_bicubic_db": 5.130786693581896,
+    "int16_improvement_over_bicubic_db": 5.107723223003603,
+    "int16_quality_penalty_vs_fp32_db": 0.023063470578293277
+  },
+  "comparisons": {
+    "int16_vs_fp32": {
+      "crop_0": {
+        "crop": 0,
+        "sample_count": 65536,
+        "maximum_absolute_error": 0.07550448179244995,
+        "mean_absolute_error": 0.0004475826862062604,
+        "mse": 2.5784883237119575e-06,
+        "rmse": 0.0016057672071978421,
+        "psnr_db": 55.88634830888621
+      },
+      "crop_2": {
+        "crop": 2,
+        "sample_count": 63504,
+        "maximum_absolute_error": 0.05195736885070801,
+        "mean_absolute_error": 0.00041824397948939183,
+        "mse": 1.3235407257947608e-06,
+        "rmse": 0.0011504524004906768,
+        "psnr_db": 58.7826269076927
+      },
+      "crop_8": {
+        "crop": 8,
+        "sample_count": 57600,
+        "maximum_absolute_error": 0.03058403730392456,
+        "mean_absolute_error": 0.0003988456451851461,
+        "mse": 7.065413115244794e-07,
+        "rmse": 0.0008405601177336928,
+        "psnr_db": 61.50862439841475
+      }
+    },
+    "bicubic_vs_hr": {
+      "crop_0": {
+        "crop": 0,
+        "sample_count": 65536,
+        "maximum_absolute_error": 0.36285078525543213,
+        "mean_absolute_error": 0.02483011263939261,
+        "mse": 0.0017779064662717362,
+        "rmse": 0.04216522816577347,
+        "psnr_db": 27.50091090525848
+      },
+      "crop_2": {
+        "crop": 2,
+        "sample_count": 63504,
+        "maximum_absolute_error": 0.2961823344230652,
+        "mean_absolute_error": 0.02503084675844174,
+        "mse": 0.0017882518503593394,
+        "rmse": 0.04228772694718102,
+        "psnr_db": 27.475713169054053
+      },
+      "crop_8": {
+        "crop": 8,
+        "sample_count": 57600,
+        "maximum_absolute_error": 0.2961823344230652,
+        "mean_absolute_error": 0.025028107121276358,
+        "mse": 0.001768598140063985,
+        "rmse": 0.04205470413715908,
+        "psnr_db": 27.523708360439283
+      }
+    },
+    "fp32_vs_hr": {
+      "crop_0": {
+        "crop": 0,
+        "sample_count": 65536,
+        "maximum_absolute_error": 0.25945454835891724,
+        "mean_absolute_error": 0.013899024204988564,
+        "mse": 0.000545544573356701,
+        "rmse": 0.023356895627559347,
+        "psnr_db": 32.631697598840375
+      },
+      "crop_2": {
+        "crop": 2,
+        "sample_count": 63504,
+        "maximum_absolute_error": 0.2541942298412323,
+        "mean_absolute_error": 0.013863973759263041,
+        "mse": 0.0005358100005859045,
+        "rmse": 0.023147570079511685,
+        "psnr_db": 32.70989184795107
+      },
+      "crop_8": {
+        "crop": 8,
+        "sample_count": 57600,
+        "maximum_absolute_error": 0.2541942298412323,
+        "mean_absolute_error": 0.013671216344357365,
+        "mse": 0.000510392892195009,
+        "rmse": 0.022591876685990674,
+        "psnr_db": 32.92095382292341
+      }
+    },
+    "int16_vs_hr": {
+      "crop_0": {
+        "crop": 0,
+        "sample_count": 65536,
+        "maximum_absolute_error": 0.2593933939933777,
+        "mean_absolute_error": 0.013939453466946361,
+        "mse": 0.00054844942711335,
+        "rmse": 0.02341899714149498,
+        "psnr_db": 32.60863412826208
+      },
+      "crop_2": {
+        "crop": 2,
+        "sample_count": 63504,
+        "maximum_absolute_error": 0.25437694787979126,
+        "mean_absolute_error": 0.01388566563096912,
+        "mse": 0.0005370597801297594,
+        "rmse": 0.02317455026812299,
+        "psnr_db": 32.69977370286472
+      },
+      "crop_8": {
+        "crop": 8,
+        "sample_count": 57600,
+        "maximum_absolute_error": 0.25437694787979126,
+        "mean_absolute_error": 0.013686624824379882,
+        "mse": 0.0005111161683632102,
+        "rmse": 0.02260787845781223,
+        "psnr_db": 32.914803805985485
+      }
+    }
+  },
+  "int16_vs_fp32_lsb": {
+    "crop_0": {
+      "crop": 0,
+      "maximum_error_lsb": 2474,
+      "mean_error_lsb": 14.666519165039062,
+      "rmse_lsb": 52.61963805656688,
+      "exact_percent": 0.1251220703125
+    },
+    "crop_2": {
+      "crop": 2,
+      "maximum_error_lsb": 1703,
+      "mean_error_lsb": 13.704979213907786,
+      "rmse_lsb": 37.70087899200717,
+      "exact_percent": 0.01889644746787604
+    },
+    "crop_8": {
+      "crop": 8,
+      "maximum_error_lsb": 1002,
+      "mean_error_lsb": 13.069131944444445,
+      "rmse_lsb": 27.544869329675336,
+      "exact_percent": 0.020833333333333336
+    }
+  }
+}

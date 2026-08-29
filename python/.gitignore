@@ -1,0 +1,15 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+uart_results*/
+uart_host_mock_results/
+uart_mock_results/
+uart_single_tile_results*/
+*.log
+*.tmp

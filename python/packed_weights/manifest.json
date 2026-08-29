@@ -1,0 +1,83 @@
+[
+  {
+    "layer": "conv1",
+    "source": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\dump_int16\\conv1_weight.npy",
+    "source_shape_oihw": [
+      64,
+      1,
+      9,
+      9
+    ],
+    "output_npy": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\packed_weights\\conv1_weight_pe4.npy",
+    "output_hex": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\packed_weights\\conv1_weight_pe4.hex",
+    "word_bits": 64,
+    "hex_digits": 16,
+    "word_count": 1296,
+    "output_channel_groups": 16,
+    "address_order": "oc_group -> input_channel -> kernel_y -> kernel_x",
+    "lane_order": {
+      "bits_15_0": "PE0 / oc_group*4+0",
+      "bits_31_16": "PE1 / oc_group*4+1",
+      "bits_47_32": "PE2 / oc_group*4+2",
+      "bits_63_48": "PE3 / oc_group*4+3"
+    },
+    "address_formula": "(((oc_group * input_channels) + ic) * kernel_h + ky) * kernel_w + kx",
+    "sha256": "98a07e78d2ffd2f354fd85b845c647787e601df649d0c9e18255d865aa403af2",
+    "round_trip_verified": true,
+    "unused_lanes_zero": true
+  },
+  {
+    "layer": "conv2",
+    "source": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\dump_int16\\conv2_weight.npy",
+    "source_shape_oihw": [
+      32,
+      64,
+      5,
+      5
+    ],
+    "output_npy": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\packed_weights\\conv2_weight_pe4.npy",
+    "output_hex": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\packed_weights\\conv2_weight_pe4.hex",
+    "word_bits": 64,
+    "hex_digits": 16,
+    "word_count": 12800,
+    "output_channel_groups": 8,
+    "address_order": "oc_group -> input_channel -> kernel_y -> kernel_x",
+    "lane_order": {
+      "bits_15_0": "PE0 / oc_group*4+0",
+      "bits_31_16": "PE1 / oc_group*4+1",
+      "bits_47_32": "PE2 / oc_group*4+2",
+      "bits_63_48": "PE3 / oc_group*4+3"
+    },
+    "address_formula": "(((oc_group * input_channels) + ic) * kernel_h + ky) * kernel_w + kx",
+    "sha256": "6628c54a34344bbc99f182083dd748cfae08bf19bd9b374c59b5a5c3ff316855",
+    "round_trip_verified": true,
+    "unused_lanes_zero": true
+  },
+  {
+    "layer": "conv3",
+    "source": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\dump_int16\\conv3_weight.npy",
+    "source_shape_oihw": [
+      1,
+      32,
+      5,
+      5
+    ],
+    "output_npy": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\packed_weights\\conv3_weight_pe4.npy",
+    "output_hex": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\packed_weights\\conv3_weight_pe4.hex",
+    "word_bits": 64,
+    "hex_digits": 16,
+    "word_count": 800,
+    "output_channel_groups": 1,
+    "address_order": "oc_group -> input_channel -> kernel_y -> kernel_x",
+    "lane_order": {
+      "bits_15_0": "PE0 / oc_group*4+0",
+      "bits_31_16": "PE1 / oc_group*4+1",
+      "bits_47_32": "PE2 / oc_group*4+2",
+      "bits_63_48": "PE3 / oc_group*4+3"
+    },
+    "address_formula": "(((oc_group * input_channels) + ic) * kernel_h + ky) * kernel_w + kx",
+    "sha256": "438b89adb94ebae643862e109532cc38d1c3037a99d46f5a7ebc43ae475df1d4",
+    "round_trip_verified": true,
+    "unused_lanes_zero": true
+  }
+]

@@ -1,0 +1,16 @@
+﻿case_id,name,bias_int32,term_offset,term_count,expected_final_acc_int48,description
+0,bias_zero_no_mac,0,0,0,0,"Bias load only, zero"
+1,bias_negative_no_mac,-1,0,0,-1,INT32 -1 sign extension to INT48
+2,bias_int32_min_no_mac,-2147483648,0,0,-2147483648,INT32 minimum sign extension
+3,bias_int32_max_no_mac,2147483647,0,0,2147483647,INT32 maximum sign extension
+4,positive_times_positive,0,0,1,20000,positive x positive
+5,positive_times_negative,0,1,1,-15000,positive x negative
+6,negative_times_negative,0,2,1,15000,negative x negative
+7,int16_max_times_max,0,3,1,1073676289,INT16 maximum product
+8,int16_min_times_min,0,4,1,1073741824,INT16 minimum squared
+9,int16_min_times_max,0,5,1,-1073709056,mixed INT16 boundaries
+10,mixed_sequence_with_negative_bias,-1000,6,3,-61534,Bias + three signed MAC operations
+11,positive_acc_exceeds_int32,2147483647,9,1,3221159936,Result exceeds signed INT32 and must remain correct in INT48
+12,cancellation_sequence,-123456,10,3,-179544,Positive/negative accumulation and cancellation
+13,conv1_worst_positive_81_terms,2147483647,13,81,89115263056,9x9 single-channel maximum positive stress
+14,conv2_worst_positive_1600_terms,2147483647,94,1600,1720029546047,64x5x5 maximum positive stress; verifies INT48 margin

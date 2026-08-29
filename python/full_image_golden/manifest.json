@@ -1,0 +1,23 @@
+{
+  "input_tiles": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\full_image_data\\input_tiles_int16.npy",
+  "parameter_dir": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\dump_int16",
+  "valid_masks": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\full_image_data\\tile_valid_masks.npy",
+  "layer_boundary_masking": true,
+  "processed_tile_count": 256,
+  "complete": true,
+  "output_shape": [
+    256,
+    1,
+    32,
+    32
+  ],
+  "output_dtype": "int16",
+  "output_sha256": "21fbd4370a190f8263831bec8f1ed831767479986f54c0a0d721a392c58630a2",
+  "elapsed_seconds": 6.1119103999999425,
+  "merged_shape": [
+    1,
+    256,
+    256
+  ],
+  "merged_sha256": "4c43404c8fee5e25749b4bb785cb326b513e7509f7709efd423dbbf0d53592a3"
+}

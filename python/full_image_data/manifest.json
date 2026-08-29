@@ -1,0 +1,36 @@
+{
+  "source_mode": "hr_for_evaluation",
+  "source_path": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\data\\butterfly_GT.bmp",
+  "lr_size": [
+    128,
+    128
+  ],
+  "bicubic_size": [
+    256,
+    256
+  ],
+  "input_q_format": "signed INT16 F15",
+  "tile_order": "row-major: tile_id = tile_y * 16 + tile_x",
+  "tile_shape": [
+    256,
+    1,
+    32,
+    32
+  ],
+  "valid_size": 16,
+  "halo": 8,
+  "tile_size": 32,
+  "tile_count": 256,
+  "input_y_min": 4512,
+  "input_y_max": 29906,
+  "input_y_sha256": "f2fe331e1b80007f8d500f57f2b1cd6ebb2422dc8a8148e2d182e5cd09d199bb",
+  "input_tiles_sha256": "1c784408a75db07f3ca01d78bd0e97b3896e4fc3b34951dbcb0bb98d1bdeb71d",
+  "tile_valid_masks_shape": [
+    256,
+    1,
+    32,
+    32
+  ],
+  "tile_valid_masks_sha256": "526891b2d5c03985c7ed5a79a17cc4ab5a0aff5558ccbd9c9743265d74e37c7a",
+  "boundary_rule": "Apply mask after Conv1/ReLU/Requant and Conv2/ReLU/Requant so features outside the full image remain zero."
+}

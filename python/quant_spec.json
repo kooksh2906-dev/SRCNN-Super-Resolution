@@ -1,0 +1,70 @@
+{
+  "version": "1.0",
+  "model": "SRCNN x2 9-5-5",
+  "integer_arithmetic": {
+    "activation_bits": 16,
+    "weight_bits": 16,
+    "bias_bits": 32,
+    "product_bits": 32,
+    "accumulator_bits": 48,
+    "signed": true,
+    "rounding": "round-to-nearest, ties-away-from-zero",
+    "saturation": "signed INT16 unless a layer specifies a narrower clamp"
+  },
+  "input": {
+    "dtype": "int16",
+    "fraction_bits": 15,
+    "layout": "NCHW"
+  },
+  "conv1": {
+    "weight_dtype": "int16",
+    "weight_fraction_bits": 14,
+    "bias_dtype": "int32",
+    "bias_fraction_bits": 29,
+    "accumulator_fraction_bits": 29,
+    "right_shift": 14,
+    "output_dtype": "int16",
+    "output_fraction_bits": 15,
+    "activation": "relu"
+  },
+  "conv2": {
+    "weight_dtype": "int16",
+    "weight_fraction_bits": 15,
+    "bias_dtype": "int32",
+    "bias_fraction_bits": 30,
+    "accumulator_fraction_bits": 30,
+    "right_shift": 16,
+    "output_dtype": "int16",
+    "output_fraction_bits": 14,
+    "activation": "relu"
+  },
+  "conv3": {
+    "weight_dtype": "int16",
+    "weight_fraction_bits": 15,
+    "bias_dtype": "int32",
+    "bias_fraction_bits": 29,
+    "accumulator_fraction_bits": 29,
+    "right_shift": 14,
+    "output_dtype": "int16",
+    "output_fraction_bits": 15,
+    "activation": "clamp",
+    "clamp_min": 0,
+    "clamp_max": 32767
+  },
+  "tile": {
+    "full_image_height": 256,
+    "full_image_width": 256,
+    "valid_height": 16,
+    "valid_width": 16,
+    "halo": 8,
+    "input_height": 32,
+    "input_width": 32,
+    "tiles_x": 16,
+    "tiles_y": 16,
+    "tile_count": 256,
+    "tile_order": "row-major",
+    "outside_image_padding": 0,
+    "global_boundary_rule": "After Conv1 and Conv2 requantization/ReLU, force feature positions outside the full 256x256 image to zero. Input-only zero padding is insufficient because convolution biases create non-zero features outside the image.",
+    "global_boundary_mask_required": true
+  }
+}

@@ -1,0 +1,162 @@
+{
+  "version": "1.0",
+  "numeric_contract": {
+    "activation": "signed INT16",
+    "weight": "signed INT16",
+    "bias": "signed INT32, sign-extended to INT48",
+    "product": "signed INT32",
+    "accumulator": "signed INT48",
+    "rounding": "round-to-nearest, ties-away-from-zero",
+    "mode_1": "ReLU then signed INT16 saturation",
+    "mode_2": "Clamp 0..32767"
+  },
+  "mac_case_count": 15,
+  "mac_term_count": 1694,
+  "requant_case_count": 45,
+  "files": [
+    {
+      "file": "mac_bias.hex",
+      "role": "One signed INT32 bias per MAC case",
+      "bits": 32,
+      "signed": true,
+      "hex_digits": 8,
+      "count": 15,
+      "minimum": -2147483648,
+      "maximum": 2147483647,
+      "sha256": "65e2ae4481ff33c657f640e214f3419d06f0244a41c27ff9f18160135e3a8dd0",
+      "round_trip_verified": true
+    },
+    {
+      "file": "mac_term_offset.hex",
+      "role": "First term address per MAC case",
+      "bits": 32,
+      "signed": false,
+      "hex_digits": 8,
+      "count": 15,
+      "minimum": 0,
+      "maximum": 94,
+      "sha256": "ae58808118dca988a7309e350b87c0171a51345a6d7cec9b7a76d9c5d65be235",
+      "round_trip_verified": true
+    },
+    {
+      "file": "mac_term_count.hex",
+      "role": "MAC term count per case",
+      "bits": 16,
+      "signed": false,
+      "hex_digits": 4,
+      "count": 15,
+      "minimum": 0,
+      "maximum": 1600,
+      "sha256": "5f72b5269c7cbbba173714ede5c6923d10bc524caedfcb64e5ac79ae4451c011",
+      "round_trip_verified": true
+    },
+    {
+      "file": "mac_activation.hex",
+      "role": "Concatenated signed INT16 activations",
+      "bits": 16,
+      "signed": true,
+      "hex_digits": 4,
+      "count": 1694,
+      "minimum": -32768,
+      "maximum": 32767,
+      "sha256": "e7dd8c5b5c0a325155e9a855b7206ed633fc126c2e348aa59090560c2e872a5f",
+      "round_trip_verified": true
+    },
+    {
+      "file": "mac_weight.hex",
+      "role": "Concatenated signed INT16 weights",
+      "bits": 16,
+      "signed": true,
+      "hex_digits": 4,
+      "count": 1694,
+      "minimum": -32768,
+      "maximum": 32767,
+      "sha256": "51f769d03192500330e3bcdfffc8031a9d93483b7ccb62b3b75f2d93f5941e2f",
+      "round_trip_verified": true
+    },
+    {
+      "file": "mac_step_expected.hex",
+      "role": "INT48 accumulator after each MAC",
+      "bits": 48,
+      "signed": true,
+      "hex_digits": 12,
+      "count": 1694,
+      "minimum": -1073709056,
+      "maximum": 1720029546047,
+      "sha256": "e127764584346ec869ff7b2fcf4b88e14158034f632c45e340fff2189b2525a4",
+      "round_trip_verified": true
+    },
+    {
+      "file": "mac_final_expected.hex",
+      "role": "Final INT48 accumulator per case",
+      "bits": 48,
+      "signed": true,
+      "hex_digits": 12,
+      "count": 15,
+      "minimum": -2147483648,
+      "maximum": 1720029546047,
+      "sha256": "b6897fc8eee438248a4d823a0b62b8cd59cd56ad3c094afaf40b2893e8859851",
+      "round_trip_verified": true
+    },
+    {
+      "file": "requant_accumulator.hex",
+      "role": "Signed INT48 requantizer input",
+      "bits": 48,
+      "signed": true,
+      "hex_digits": 12,
+      "count": 45,
+      "minimum": -140737488355328,
+      "maximum": 140737488355327,
+      "sha256": "04998a75c098088b98bdd0b67986ee630def206583694fa6615e977edd7750af",
+      "round_trip_verified": true
+    },
+    {
+      "file": "requant_shift.hex",
+      "role": "Arithmetic right shift amount",
+      "bits": 8,
+      "signed": false,
+      "hex_digits": 2,
+      "count": 45,
+      "minimum": 14,
+      "maximum": 16,
+      "sha256": "4028fc9b4c150be56e81ebd6772d50160cc6e61182ebd067f5f7983f9cfb7ff0",
+      "round_trip_verified": true
+    },
+    {
+      "file": "requant_mode.hex",
+      "role": "1=ReLU, 2=Clamp 0..32767",
+      "bits": 8,
+      "signed": false,
+      "hex_digits": 2,
+      "count": 45,
+      "minimum": 1,
+      "maximum": 2,
+      "sha256": "ac5b0014d18c18db5fbe46cfec5404c7d2b169a057aefc9f2ef141af8bfdd40a",
+      "round_trip_verified": true
+    },
+    {
+      "file": "requant_round_expected.hex",
+      "role": "Raw ties-away rounded result before activation/clamp",
+      "bits": 48,
+      "signed": true,
+      "hex_digits": 12,
+      "count": 45,
+      "minimum": -8589934592,
+      "maximum": 8589934592,
+      "sha256": "9378849bf11485cac04706727bed9d226ea74a5e51f8aad821012b42a4b1e16c",
+      "round_trip_verified": true
+    },
+    {
+      "file": "requant_output_expected.hex",
+      "role": "Final INT16 output after activation and saturation",
+      "bits": 16,
+      "signed": true,
+      "hex_digits": 4,
+      "count": 45,
+      "minimum": 0,
+      "maximum": 32767,
+      "sha256": "098ec001586e75ba56ad4b0db1642ddf0af422d2a6a91abdd69074e91cd27bd6",
+      "round_trip_verified": true
+    }
+  ]
+}

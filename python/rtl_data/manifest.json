@@ -1,0 +1,240 @@
+[
+  {
+    "source": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\dump_int16\\input_y.npy",
+    "output": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\rtl_data\\input_y.hex",
+    "role": "RTL input activation",
+    "bits": 16,
+    "hex_digits": 4,
+    "source_dtype": "int16",
+    "shape": [
+      1,
+      1,
+      32,
+      32
+    ],
+    "count": 1024,
+    "minimum": 7219,
+    "maximum": 25126,
+    "sha256": "0be1c7c2a8a0e773c08f3a876412bac5f3e2caeb11238b454d601d2999c461b2",
+    "round_trip_verified": true
+  },
+  {
+    "source": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\dump_int16\\conv1_weight.npy",
+    "output": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\rtl_data\\conv1_weight.hex",
+    "role": "Conv1 weight",
+    "bits": 16,
+    "hex_digits": 4,
+    "source_dtype": "int16",
+    "shape": [
+      64,
+      1,
+      9,
+      9
+    ],
+    "count": 5184,
+    "minimum": -22418,
+    "maximum": 8078,
+    "sha256": "abfca56b839ddcb526cd23d434bfc3a417398334b6afb7851fd486e5dec9eeb5",
+    "round_trip_verified": true
+  },
+  {
+    "source": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\dump_int16\\conv1_bias.npy",
+    "output": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\rtl_data\\conv1_bias.hex",
+    "role": "Conv1 bias",
+    "bits": 32,
+    "hex_digits": 8,
+    "source_dtype": "int32",
+    "shape": [
+      64
+    ],
+    "count": 64,
+    "minimum": -118645704,
+    "maximum": 159737920,
+    "sha256": "945da6a05a5da60d66c136343d7fbd96b8197e0fa2f81a6d62787190d9a971c4",
+    "round_trip_verified": true
+  },
+  {
+    "source": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\dump_int16\\conv2_weight.npy",
+    "output": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\rtl_data\\conv2_weight.hex",
+    "role": "Conv2 weight",
+    "bits": 16,
+    "hex_digits": 4,
+    "source_dtype": "int16",
+    "shape": [
+      32,
+      64,
+      5,
+      5
+    ],
+    "count": 51200,
+    "minimum": -31613,
+    "maximum": 22763,
+    "sha256": "b4db5af30934facb262f605afd1a1f6502f5171146e31e1ad7ecc37e9359b1a4",
+    "round_trip_verified": true
+  },
+  {
+    "source": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\dump_int16\\conv2_bias.npy",
+    "output": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\rtl_data\\conv2_bias.hex",
+    "role": "Conv2 bias",
+    "bits": 32,
+    "hex_digits": 8,
+    "source_dtype": "int32",
+    "shape": [
+      32
+    ],
+    "count": 32,
+    "minimum": -92977184,
+    "maximum": 63056072,
+    "sha256": "618e46bdcf32f3f3d5438c5e960b4c6a102c38334836a41924f10a716e22e5be",
+    "round_trip_verified": true
+  },
+  {
+    "source": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\dump_int16\\conv3_weight.npy",
+    "output": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\rtl_data\\conv3_weight.hex",
+    "role": "Conv3 weight",
+    "bits": 16,
+    "hex_digits": 4,
+    "source_dtype": "int16",
+    "shape": [
+      1,
+      32,
+      5,
+      5
+    ],
+    "count": 800,
+    "minimum": -5390,
+    "maximum": 6273,
+    "sha256": "9ae648c1df8188292c42ab9d51fcf9f145c62ca5a5b3e210bbf4f6b2efdace75",
+    "round_trip_verified": true
+  },
+  {
+    "source": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\dump_int16\\conv3_bias.npy",
+    "output": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\rtl_data\\conv3_bias.hex",
+    "role": "Conv3 bias",
+    "bits": 32,
+    "hex_digits": 8,
+    "source_dtype": "int32",
+    "shape": [
+      1
+    ],
+    "count": 1,
+    "minimum": -5680864,
+    "maximum": -5680864,
+    "sha256": "dc2a567b49e123967bb4bb127e1a80b9e02abf7f7ceb3be705e049418ffd3d06",
+    "round_trip_verified": true
+  },
+  {
+    "source": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\golden_int16\\conv1_acc.npy",
+    "output": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\rtl_data\\conv1_acc_expected.hex",
+    "role": "Conv1 accumulator expected",
+    "bits": 48,
+    "hex_digits": 12,
+    "source_dtype": "int64",
+    "shape": [
+      1,
+      64,
+      32,
+      32
+    ],
+    "count": 65536,
+    "minimum": -1040019794,
+    "maximum": 309057526,
+    "sha256": "2502c877e718b9b46b3ca593b9fe295979fd0f69f1ca2480ecb1a68dd42fac1c",
+    "round_trip_verified": true
+  },
+  {
+    "source": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\golden_int16\\relu1_q.npy",
+    "output": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\rtl_data\\relu1_expected.hex",
+    "role": "Conv1 requantized output expected",
+    "bits": 16,
+    "hex_digits": 4,
+    "source_dtype": "int16",
+    "shape": [
+      1,
+      64,
+      32,
+      32
+    ],
+    "count": 65536,
+    "minimum": 0,
+    "maximum": 18863,
+    "sha256": "9e5c04ee7baf138c1f14a0963d47732fe477268e84b7745e2136241b2159375b",
+    "round_trip_verified": true
+  },
+  {
+    "source": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\golden_int16\\conv2_acc.npy",
+    "output": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\rtl_data\\conv2_acc_expected.hex",
+    "role": "Conv2 accumulator expected",
+    "bits": 48,
+    "hex_digits": 12,
+    "source_dtype": "int64",
+    "shape": [
+      1,
+      32,
+      32,
+      32
+    ],
+    "count": 32768,
+    "minimum": -1690041272,
+    "maximum": 1975514978,
+    "sha256": "e0559779cad7028b62ac07ecd00ab2631f5a5d64afbd1af82b66793459fb3c76",
+    "round_trip_verified": true
+  },
+  {
+    "source": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\golden_int16\\relu2_q.npy",
+    "output": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\rtl_data\\relu2_expected.hex",
+    "role": "Conv2 requantized output expected",
+    "bits": 16,
+    "hex_digits": 4,
+    "source_dtype": "int16",
+    "shape": [
+      1,
+      32,
+      32,
+      32
+    ],
+    "count": 32768,
+    "minimum": 0,
+    "maximum": 30144,
+    "sha256": "059a1a8093400ccf5f08feca569cc8f979a2c809c45a6933e94cd14642f663a1",
+    "round_trip_verified": true
+  },
+  {
+    "source": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\golden_int16\\conv3_acc.npy",
+    "output": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\rtl_data\\conv3_acc_expected.hex",
+    "role": "Conv3 accumulator expected",
+    "bits": 48,
+    "hex_digits": 12,
+    "source_dtype": "int64",
+    "shape": [
+      1,
+      1,
+      32,
+      32
+    ],
+    "count": 1024,
+    "minimum": 91506981,
+    "maximum": 453359593,
+    "sha256": "72f57bc9f6b34e35a8f3ae884bebbf5627e3bddd7546be40aef0267b8d3536b0",
+    "round_trip_verified": true
+  },
+  {
+    "source": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\golden_int16\\output_q.npy",
+    "output": "C:\\Users\\hotik\\OneDrive\\문서\\workspace\\SRCNN_Project\\rtl_data\\output_expected.hex",
+    "role": "Final output expected",
+    "bits": 16,
+    "hex_digits": 4,
+    "source_dtype": "int16",
+    "shape": [
+      1,
+      1,
+      32,
+      32
+    ],
+    "count": 1024,
+    "minimum": 5585,
+    "maximum": 27671,
+    "sha256": "fb17787a238744024a461cd782ca9d8d3ebcfedc83aa316c6a1f5602206127dc",
+    "round_trip_verified": true
+  }
+]
