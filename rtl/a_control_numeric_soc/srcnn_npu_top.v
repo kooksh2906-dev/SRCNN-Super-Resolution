@@ -7,6 +7,11 @@ module srcnn_npu_top (
     // 전체 SRCNN 실행 시작 Pulse
     input  wire start_i,
 
+    // PC가 전송한 16x16 Tile Grid 좌표(0~15)
+    // START 시점에 AXI Wrapper가 고정한 좌표를 전달한다.
+    input  wire [3:0] tile_x_i,
+    input  wire [3:0] tile_y_i,
+
     // 원본 32×32 Input Tile BRAM Read Data
     input  wire signed [15:0] input_tile_data_i,
 
@@ -89,6 +94,15 @@ module srcnn_npu_top (
     wire [4:0] result_x_int;
     wire [3:0] result_pe_enable_int;
 
+    // Global Boundary Mask 적용 후 Feature Bank에 쓸 Data
+    wire               boundary_inside_image_int;
+    wire signed [15:0] masked_requant_pe0_int;
+    wire signed [15:0] masked_requant_pe1_int;
+    wire signed [15:0] masked_requant_pe2_int;
+    wire signed [15:0] masked_requant_pe3_int;
+    wire               boundary_mask_enable_int;
+    wire        [1:0]  result_layer_index_int;
+
     // Feature Bank A Read Interface
     wire               bank_a_read_en_int;
     wire        [15:0] bank_a_read_addr_int;
@@ -107,6 +121,7 @@ module srcnn_npu_top (
     // Layer 완료와 Feature Bank 선택을 총 5클럭 유지
     reg [4:0] compute_done_pipe_reg;
     reg [4:0] feature_write_bank_pipe_reg;
+    reg [9:0] layer_index_pipe_reg;
 
     // Conv1 → Conv2 → Conv3 실행 순서와 고정 설정값 관리
     srcnn_layer_controller u_srcnn_layer_controller (
@@ -193,6 +208,7 @@ module srcnn_npu_top (
         if (!rst_n) begin
             compute_done_pipe_reg       <= 5'b00000;
             feature_write_bank_pipe_reg <= 5'b00000;
+            layer_index_pipe_reg        <= 10'd0;
         end
         else begin
             compute_done_pipe_reg
@@ -201,8 +217,41 @@ module srcnn_npu_top (
             feature_write_bank_pipe_reg
                 <= {feature_write_bank_pipe_reg[3:0],
                     feature_write_bank_int};
+
+            // 2-bit Layer Index도 동일한 5 Clock 지연
+            layer_index_pipe_reg
+                <= {layer_index_pipe_reg[7:0], layer_index_o};
         end
     end
+
+    // Requant 출력과 동일한 Cycle의 Layer 번호
+    assign result_layer_index_int = layer_index_pipe_reg[9:8];
+
+    // 계약상 Conv1과 Conv2 중간 Feature에만 Global Mask 적용
+    assign boundary_mask_enable_int =
+        (result_layer_index_int == 2'd0) ||
+        (result_layer_index_int == 2'd1);
+
+    // 전체 256x256 영상 밖 Feature를 명시적 0으로 변환
+    // Write Valid는 유지하여 이전 Tile의 BRAM 값이 남지 않게 한다.
+    global_boundary_mask u_global_boundary_mask (
+        .mask_enable_i(boundary_mask_enable_int),
+        .tile_x_i      (tile_x_i),
+        .tile_y_i      (tile_y_i),
+        .local_x_i     (result_x_int),
+        .local_y_i     (result_y_int),
+
+        .data0_i       (requant_pe0_int),
+        .data1_i       (requant_pe1_int),
+        .data2_i       (requant_pe2_int),
+        .data3_i       (requant_pe3_int),
+
+        .inside_image_o(boundary_inside_image_int),
+        .data0_o       (masked_requant_pe0_int),
+        .data1_o       (masked_requant_pe1_int),
+        .data2_o       (masked_requant_pe2_int),
+        .data3_o       (masked_requant_pe3_int)
+    );
 
     // Conv1 결과를 저장하고 Conv2 입력으로 공급
     // Conv3 완료 후 최종 결과도 다시 Bank A에 저장
@@ -217,10 +266,10 @@ module srcnn_npu_top (
         .write_y_i        (result_y_int),
         .write_x_i        (result_x_int),
 
-        .write_data0_i    (requant_pe0_int),
-        .write_data1_i    (requant_pe1_int),
-        .write_data2_i    (requant_pe2_int),
-        .write_data3_i    (requant_pe3_int),
+        .write_data0_i    (masked_requant_pe0_int),
+        .write_data1_i    (masked_requant_pe1_int),
+        .write_data2_i    (masked_requant_pe2_int),
+        .write_data3_i    (masked_requant_pe3_int),
 
         .read_en_i        (bank_a_read_en_int),
         .read_addr_i      (bank_a_read_addr_int),
@@ -241,10 +290,10 @@ module srcnn_npu_top (
         .write_y_i        (result_y_int),
         .write_x_i        (result_x_int),
 
-        .write_data0_i    (requant_pe0_int),
-        .write_data1_i    (requant_pe1_int),
-        .write_data2_i    (requant_pe2_int),
-        .write_data3_i    (requant_pe3_int),
+        .write_data0_i    (masked_requant_pe0_int),
+        .write_data1_i    (masked_requant_pe1_int),
+        .write_data2_i    (masked_requant_pe2_int),
+        .write_data3_i    (masked_requant_pe3_int),
 
         .read_en_i        (bank_b_read_en_int),
         .read_addr_i      (bank_b_read_addr_int),

@@ -11,6 +11,10 @@ module srcnn_npu_fixed_top #(
     // 전체 SRCNN 실행 시작 Pulse
     input  wire start_i,
 
+    // 16x16 Tile Grid 좌표(0~15)
+    input  wire [3:0] tile_x_i,
+    input  wire [3:0] tile_y_i,
+
     // 원본 32×32 Input Tile BRAM Read Data
     input  wire signed [15:0] input_tile_data_i,
 
@@ -70,6 +74,8 @@ module srcnn_npu_fixed_top #(
         .clk                    (clk),
         .rst_n                  (rst_n),
         .start_i                (start_i),
+        .tile_x_i               (tile_x_i),
+        .tile_y_i               (tile_y_i),
 
         .input_tile_data_i      (input_tile_data_i),
 

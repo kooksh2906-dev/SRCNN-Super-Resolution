@@ -12,13 +12,13 @@ set repo_root  [file normalize [file join $script_dir ../..]]
 set soc_root         [file normalize /tmp/srcnn_zybo_soc]
 set board_repo_dir   [file join $soc_root board_repo]
 set ip_repo_dir      [file join $soc_root ip_repo]
-set ip_root          [file join $ip_repo_dir srcnn_npu_axi_1_0]
-set pack_project_dir [file join $soc_root ip_pack_project]
-set wizard_backup    [file join $soc_root wizard_backup srcnn_npu_axi_1_0]
+set ip_root          [file join $ip_repo_dir AXI4_SRCNN_NPU_1_0]
+set pack_project_dir [file join $soc_root AXI4_SRCNN_NPU_pack_project]
+set wizard_backup    [file join $soc_root wizard_backup AXI4_SRCNN_NPU_1_0]
 
 set part_name  xc7z020clg400-1
 set board_vlnv digilentinc.com:zybo-z7-20:part0:1.2
-set top_name   srcnn_npu_axi
+set top_name   AXI4_SRCNN_NPU
 
 proc srcnn_fail {message} {
     puts "ERROR: $message"
@@ -34,10 +34,14 @@ if {![file isdirectory $repo_root]} {
 }
 
 set required_files [list \
-    [file join $repo_root rtl a_control_numeric_soc srcnn_npu_axi.v] \
-    [file join $repo_root rtl a_control_numeric_soc srcnn_npu_axi_slave_lite_v1_0_S_AXI.v] \
+    [file join $repo_root rtl a_control_numeric_soc AXI4_SRCNN_NPU.v] \
+    [file join $repo_root rtl a_control_numeric_soc AXI4_SRCNN_NPU_slave_lite_v1_0_S00_AXI.v] \
     [file join $repo_root rtl a_control_numeric_soc srcnn_npu_fixed_top.v] \
-    [file join $repo_root rtl b_compute_core srcnn_compute_core.v]]
+    [file join $repo_root rtl a_control_numeric_soc srcnn_npu_top.v] \
+    [file join $repo_root rtl a_control_numeric_soc global_boundary_mask.v] \
+    [file join $repo_root rtl b_compute_core srcnn_compute_core.v] \
+    [file join $repo_root rtl mem_init srcnn_weights_all.hex] \
+    [file join $repo_root rtl mem_init srcnn_biases_all.hex]]
 
 foreach required_file $required_files {
     if {![file exists $required_file]} {
@@ -70,7 +74,7 @@ if {[file isdirectory $board_repo_dir]} {
 }
 
 create_project \
-    srcnn_npu_axi_pack \
+    AXI4_SRCNN_NPU_pack \
     $pack_project_dir \
     -part $part_name \
     -force
@@ -115,28 +119,28 @@ set core [ipx::current_core]
 
 set_property vendor              user.org $core
 set_property library             user $core
-set_property name                srcnn_npu_axi $core
+set_property name                AXI4_SRCNN_NPU $core
 set_property version             1.0 $core
-set_property display_name        {SRCNN NPU AXI4-Lite} $core
-set_property description         {Fixed-parameter 3-layer SRCNN NPU with AXI4-Lite control and dual BRAM data paths} $core
+set_property display_name        {AXI4 SRCNN NPU v1.0} $core
+set_property description         {Fixed-parameter 3-layer SRCNN NPU with AXI4-Lite control, input BRAM pins, and register-based result readout} $core
 set_property vendor_display_name {SRCNN NPU Team} $core
-set_property core_revision       1 $core
+set_property core_revision       5 $core
 set_property supported_families  {zynq Production} $core
 
-# X_INTERFACE_INFO Attribute로 추론되어야 하는 Interface를 검사한다.
-foreach interface_name {S_AXI INPUT_BRAM OUTPUT_BRAM IRQ S_AXI_CLK S_AXI_RST} {
+# 팀원 B의 Vivado AXI4-Lite Wizard 구조와 동일한 Interface를 검사한다.
+foreach interface_name {S00_AXI S00_AXI_CLK S00_AXI_RST} {
     set interface_object [ipx::get_bus_interfaces -quiet -of_objects $core $interface_name]
     if {[llength $interface_object] == 0} {
         srcnn_fail "Interface 추론 실패: $interface_name"
     }
 }
 
-# AXI4-Lite Address Space: 0x00 ~ 0x1C, 총 32 Byte
-set s_axi_if [lindex [ipx::get_bus_interfaces -quiet -of_objects $core S_AXI] 0]
-set memory_maps [ipx::get_memory_maps -quiet -of_objects $core S_AXI]
+# AXI4-Lite Address Space: 0x00 ~ 0x20, 64 Byte Range
+set s_axi_if [lindex [ipx::get_bus_interfaces -quiet -of_objects $core S00_AXI] 0]
+set memory_maps [ipx::get_memory_maps -quiet -of_objects $core S00_AXI]
 
 if {[llength $memory_maps] == 0} {
-    set memory_map [ipx::add_memory_map S_AXI $core]
+    set memory_map [ipx::add_memory_map S00_AXI $core]
 } else {
     set memory_map [lindex $memory_maps 0]
 }
@@ -145,13 +149,13 @@ set_property slave_memory_map_ref [get_property NAME $memory_map] $s_axi_if
 
 set address_blocks [ipx::get_address_blocks -quiet -of_objects $memory_map]
 if {[llength $address_blocks] == 0} {
-    set address_block [ipx::add_address_block Reg $memory_map]
-    set_property range 0x20 $address_block
+    set address_block [ipx::add_address_block S00_AXI_reg $memory_map]
+    set_property range 0x40 $address_block
     set_property width 32 $address_block
     set_property usage register $address_block
 } else {
     set address_block [lindex $address_blocks 0]
-    set_property range 0x20 $address_block
+    set_property range 0x40 $address_block
     set_property width 32 $address_block
     set_property usage register $address_block
 }
@@ -160,12 +164,13 @@ if {[llength $address_blocks] == 0} {
 set register_specs {
     CTRL         0x00 read-write
     STATUS       0x04 read-only
-    WIDTH        0x08 read-only
-    HEIGHT       0x0C read-only
+    OUTPUT_ADDR  0x08 read-write
+    OUTPUT_DATA  0x0C read-only
     CYCLE_COUNT  0x10 read-only
     LAYER_DEBUG  0x14 read-only
-    ERROR_STATUS 0x18 read-only
+    RESERVED     0x18 read-only
     VERSION      0x1C read-only
+    TILE_POS     0x20 read-write
 }
 
 if {[llength [ipx::get_registers -quiet -of_objects $address_block]] == 0} {
@@ -185,10 +190,27 @@ puts "IP_INTEGRITY_RESULT=$integrity_result"
 
 ipx::save_core $core
 
+# Weight/Bias ROM은 basename을 사용해 readmemh를 수행한다.
+# 팀원 B의 Rev4 IP와 동일하게 두 초기화 파일을 Packaged IP의
+# RTL Source 디렉터리에 함께 배치한다.
+set packaged_mem_init_dir [file join $ip_root src]
+file mkdir $packaged_mem_init_dir
+
+foreach mem_init_file [list \
+    [file join $repo_root rtl mem_init srcnn_weights_all.hex] \
+    [file join $repo_root rtl mem_init srcnn_biases_all.hex]] {
+
+    set packaged_mem_init_file \
+        [file join $packaged_mem_init_dir [file tail $mem_init_file]]
+
+    file copy -force $mem_init_file $packaged_mem_init_file
+    puts "PACKAGED_MEM_INIT_FILE=$packaged_mem_init_file"
+}
+
 set_property ip_repo_paths [list $ip_repo_dir] [current_fileset]
 update_ip_catalog -rebuild
 
-set packaged_ip [get_ipdefs -all -quiet user.org:user:srcnn_npu_axi:1.0]
+set packaged_ip [get_ipdefs -all -quiet user.org:user:AXI4_SRCNN_NPU:1.0]
 if {[llength $packaged_ip] == 0} {
     srcnn_fail "Packaged IP가 IP Catalog에서 검색되지 않습니다."
 }
