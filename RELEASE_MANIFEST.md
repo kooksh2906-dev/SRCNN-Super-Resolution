@@ -90,3 +90,11 @@ cd python
 - 실패 Backup, 임시 파일, 발표 영상 및 개발 과정의 외부 아카이브
 
 이 저장소의 기본 파일명은 실보드에서 최종 검증한 파일을 의미한다. 이전 버전과 조사 근거는 별도 외부 아카이브로 보존하며 Release에는 포함하지 않는다.
+
+## Vivado GUI Project Snapshot
+
+- XPR: `vivado/project/SRCNN_NPU_SOC/SRCNN_NPU_SOC.xpr`
+- Vivado Version: 2024.2
+- Block Design 및 `AXI4_SRCNN_NPU:1.0` 검증: PASS
+- Global Boundary Mask 포함 확인: PASS
+- 최종 Implementation BIT와 Release BIT byte-identical: PASS

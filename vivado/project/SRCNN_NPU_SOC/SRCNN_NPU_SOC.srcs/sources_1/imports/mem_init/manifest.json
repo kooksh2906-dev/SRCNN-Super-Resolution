@@ -1,0 +1,74 @@
+{
+  "format_version": 1,
+  "description": "Fixed SRCNN Conv1/Conv2/Conv3 FPGA parameter memory image",
+  "weight_memory": {
+    "file": "rtl/mem_init/srcnn_weights_all.hex",
+    "word_bits": 64,
+    "word_count": 14896,
+    "sha256": "b49dfe3ed265edeec268e64ecc07b06fe56cb647cabc79cebc6ff5f60735ef19",
+    "layers": [
+      {
+        "layer": "conv1",
+        "source": "tb/data/pe4_weights/conv1_weight_pe4.hex",
+        "source_sha256": "98a07e78d2ffd2f354fd85b845c647787e601df649d0c9e18255d865aa403af2",
+        "base_address": 0,
+        "end_address": 1295,
+        "word_count": 1296,
+        "word_bits": 64
+      },
+      {
+        "layer": "conv2",
+        "source": "tb/data/pe4_weights/conv2_weight_pe4.hex",
+        "source_sha256": "6628c54a34344bbc99f182083dd748cfae08bf19bd9b374c59b5a5c3ff316855",
+        "base_address": 1296,
+        "end_address": 14095,
+        "word_count": 12800,
+        "word_bits": 64
+      },
+      {
+        "layer": "conv3",
+        "source": "tb/data/pe4_weights/conv3_weight_pe4.hex",
+        "source_sha256": "438b89adb94ebae643862e109532cc38d1c3037a99d46f5a7ebc43ae475df1d4",
+        "base_address": 14096,
+        "end_address": 14895,
+        "word_count": 800,
+        "word_bits": 64
+      }
+    ]
+  },
+  "bias_memory": {
+    "file": "rtl/mem_init/srcnn_biases_all.hex",
+    "word_bits": 32,
+    "word_count": 97,
+    "sha256": "1e99e9f2a3c18314f6ca45075e0d845c1f9f36d568fd3e431fd8ad352f389c3f",
+    "layers": [
+      {
+        "layer": "conv1",
+        "source": "tb/data/single_tile/conv1_bias.hex",
+        "source_sha256": "945da6a05a5da60d66c136343d7fbd96b8197e0fa2f81a6d62787190d9a971c4",
+        "base_address": 0,
+        "end_address": 63,
+        "word_count": 64,
+        "word_bits": 32
+      },
+      {
+        "layer": "conv2",
+        "source": "tb/data/single_tile/conv2_bias.hex",
+        "source_sha256": "618e46bdcf32f3f3d5438c5e960b4c6a102c38334836a41924f10a716e22e5be",
+        "base_address": 64,
+        "end_address": 95,
+        "word_count": 32,
+        "word_bits": 32
+      },
+      {
+        "layer": "conv3",
+        "source": "tb/data/single_tile/conv3_bias.hex",
+        "source_sha256": "dc2a567b49e123967bb4bb127e1a80b9e02abf7f7ceb3be705e049418ffd3d06",
+        "base_address": 96,
+        "end_address": 96,
+        "word_count": 1,
+        "word_bits": 32
+      }
+    ]
+  }
+}

@@ -1,0 +1,487 @@
+`timescale 1ns / 1ps
+
+module srcnn_group_compute_top (
+    input  wire clk,
+    input  wire rst_n,
+    input  wire start_i,
+
+    // 현재 Layer 설정
+    input  wire [6:0]  out_channel_count_i,
+    input  wire [6:0]  in_channel_count_i,
+    input  wire [5:0]  output_size_i,
+    input  wire [3:0]  kernel_size_i,
+    input  wire [3:0]  pad_i,
+    input  wire [15:0] weight_word_base_addr_i,
+    input  wire [15:0] bias_base_addr_i,
+
+	// Layer별 Requant Right Shift 크기
+    input  wire [5:0] requant_shift_i,
+
+    // BRAM Read Data
+    input  wire signed [15:0] activation_bram_data_i,
+    input  wire        [63:0] weight_word_i,
+    input  wire signed [31:0] bias_bram_data_i,
+
+    // Activation BRAM
+    output wire        activation_bram_en_o,
+    output wire [15:0] activation_bram_addr_o,
+
+    // Weight BRAM
+    output wire        weight_bram_en_o,
+    output wire [15:0] weight_word_addr_o,
+
+    // Bias BRAM
+    output wire        bias_bram_en_o,
+    output wire [15:0] bias_bram_addr_o,
+
+    // 전체 Layer 상태
+    output wire run_o,
+    output wire done_o,
+
+    // B파트 INT48 결과
+    output wire signed [47:0] accumulator0_o,
+    output wire signed [47:0] accumulator1_o,
+    output wire signed [47:0] accumulator2_o,
+    output wire signed [47:0] accumulator3_o,
+    output wire               acc_valid_o,
+
+	// Requant, ReLU 및 INT16 Saturation 결과
+    output wire signed [15:0] requant_pe0_o,
+    output wire signed [15:0] requant_pe1_o,
+    output wire signed [15:0] requant_pe2_o,
+    output wire signed [15:0] requant_pe3_o,
+    output wire               requant_valid_o,
+
+    // acc_valid_o와 함께 유효한 결과 위치
+    output wire [5:0] result_out_channel_group_o,
+    output wire [4:0] result_y_o,
+    output wire [4:0] result_x_o,
+    output wire [3:0] result_pe_enable_o
+);
+
+    // A파트에서 B파트로 전달하는 제어 신호
+    wire op_start_int;
+    wire bias_load_int;
+    wire mac_valid_int;
+    wire mac_last_int;
+
+    // A파트가 관찰하는 B파트 상태
+    wire core_busy_int;
+    wire core_done_int;
+
+    // A파트가 생성하는 현재 연산 좌표
+    wire [5:0] out_channel_group_int;
+    wire [5:0] in_channel_int;
+    wire [4:0] out_y_int;
+    wire [4:0] out_x_int;
+    wire [3:0] kernel_y_int;
+    wire [3:0] kernel_x_int;
+
+    wire [6:0] out_channel_group_count_int;
+    wire       last_index_int;
+    wire       padding_int;
+
+    // A파트에서 B파트로 전달하는 PE Mask
+    wire [3:0] pe_enable_int;
+
+    // A파트에서 B파트로 전달하는 연산 데이터
+    wire signed [15:0] activation_int;
+    wire signed [15:0] weight_pe0_int;
+    wire signed [15:0] weight_pe1_int;
+    wire signed [15:0] weight_pe2_int;
+    wire signed [15:0] weight_pe3_int;
+
+    // Feature Bank와 Weight Supply에서 읽은 MAC 입력을 1 Clock 저장
+    // BRAM → 선택 LUT → DSP48로 이어지던 경로를 Register로 분리
+    reg                     mac_valid_core_reg;
+    reg                     mac_last_core_reg;
+
+    reg signed [15:0]       activation_core_reg;
+    reg signed [15:0]       weight_pe0_core_reg;
+    reg signed [15:0]       weight_pe1_core_reg;
+    reg signed [15:0]       weight_pe2_core_reg;
+    reg signed [15:0]       weight_pe3_core_reg;
+
+    wire signed [31:0] bias_pe0_int;
+    wire signed [31:0] bias_pe1_int;
+    wire signed [31:0] bias_pe2_int;
+    wire signed [31:0] bias_pe3_int;
+
+    // Output 연산 단위 제어 신호도 MAC 입력과 동일하게 1 Clock 지연
+    reg                     op_start_core_reg;
+    reg                     bias_load_core_reg;
+
+    // 지연된 Bias Load와 함께 사용할 PE별 Bias
+    reg signed [31:0]       bias_pe0_core_reg;
+    reg signed [31:0]       bias_pe1_core_reg;
+    reg signed [31:0]       bias_pe2_core_reg;
+    reg signed [31:0]       bias_pe3_core_reg;
+
+	// Mask 적용 전 PE별 Requant 결과
+    wire signed [15:0] requant_pe0_int;
+    wire signed [15:0] requant_pe1_int;
+    wire signed [15:0] requant_pe2_int;
+    wire signed [15:0] requant_pe3_int;
+
+    // 결과가 나올 때까지 유지할 Output 위치와 PE Mask
+    reg [5:0] result_out_channel_group_reg;
+    reg [4:0] result_y_reg;
+    reg [4:0] result_x_reg;
+    reg [3:0] result_pe_enable_reg;
+
+    // 4단 Requant Pipeline과 동일하게 Valid를 4 Clock 지연
+    reg [3:0] requant_valid_pipe_reg;
+
+    // Stage 1 결과 위치
+    reg [5:0] result_group_stage1_reg;
+    reg [4:0] result_y_stage1_reg;
+    reg [4:0] result_x_stage1_reg;
+    reg [3:0] result_pe_enable_stage1_reg;
+
+    // Stage 2 결과 위치
+    reg [5:0] result_group_stage2_reg;
+    reg [4:0] result_y_stage2_reg;
+    reg [4:0] result_x_stage2_reg;
+    reg [3:0] result_pe_enable_stage2_reg;
+
+    // Stage 3 결과 위치
+    reg [5:0] result_group_stage3_reg;
+    reg [4:0] result_y_stage3_reg;
+    reg [4:0] result_x_stage3_reg;
+    reg [3:0] result_pe_enable_stage3_reg;
+
+    // Stage 4: Requant 출력과 함께 외부로 전달할 결과 위치
+    reg [5:0] result_out_channel_group_pipe_reg;
+    reg [4:0] result_y_pipe_reg;
+    reg [4:0] result_x_pipe_reg;
+    reg [3:0] result_pe_enable_pipe_reg;
+
+    // BRAM 주소·데이터와 전체 합성곱 순서를 관리하는 A파트
+    conv_group_data_supply_top u_conv_group_data_supply_top (
+		// Input Port
+        // Clock / Reset / Start
+        .clk                      (clk),
+        .rst_n                    (rst_n),
+        .start_i                  (start_i),
+
+        // B파트의 Busy와 Done 내부 신호
+        .core_busy_i              (core_busy_int),
+        .core_done_i              (core_done_int),
+
+        // Layer 설정
+        .out_channel_count_i      (out_channel_count_i),
+        .in_channel_count_i       (in_channel_count_i),
+        .output_size_i            (output_size_i),
+        .kernel_size_i            (kernel_size_i),
+        .pad_i                    (pad_i),
+        .weight_word_base_addr_i  (weight_word_base_addr_i),
+        .bias_base_addr_i         (bias_base_addr_i),
+
+        // 외부 BRAM Read Data
+        .activation_bram_data_i   (activation_bram_data_i),
+        .weight_word_i            (weight_word_i),
+        .bias_bram_data_i         (bias_bram_data_i),
+		// Output Port
+
+        // 전체 Layer 상태
+        .run_o                    (run_o),
+        .done_o                   (done_o),
+        .last_index_o             (last_index_int),
+
+        // 현재 Group과 MAC 좌표 내부 신호
+        .out_channel_group_count_o(out_channel_group_count_int),
+        .out_channel_group_o      (out_channel_group_int),
+        .in_channel_o             (in_channel_int),
+        .out_y_o                  (out_y_int),
+        .out_x_o                  (out_x_int),
+        .kernel_y_o               (kernel_y_int),
+        .kernel_x_o               (kernel_x_int),
+
+        // 외부 Activation BRAM
+        .activation_bram_en_o     (activation_bram_en_o),
+        .activation_bram_addr_o   (activation_bram_addr_o),
+        .padding_o                (padding_int),
+
+        // 외부 Packed Weight BRAM
+        .weight_bram_en_o         (weight_bram_en_o),
+        .weight_word_addr_o       (weight_word_addr_o),
+
+        // 외부 Bias BRAM
+        .bias_bram_en_o           (bias_bram_en_o),
+        .bias_bram_addr_o         (bias_bram_addr_o),
+
+        // B파트 제어 내부 신호
+        .op_start_o               (op_start_int),
+        .bias_load_o              (bias_load_int),
+        .mac_valid_o              (mac_valid_int),
+        .mac_last_o               (mac_last_int),
+
+        // B파트 PE Mask 내부 신호
+        .pe_enable_o              (pe_enable_int),
+
+        // Activation과 PE별 Weight 내부 신호
+        .activation_o             (activation_int),
+        .weight_pe0_o             (weight_pe0_int),
+        .weight_pe1_o             (weight_pe1_int),
+        .weight_pe2_o             (weight_pe2_int),
+        .weight_pe3_o             (weight_pe3_int),
+
+        // PE별 Bias 내부 신호
+        .bias_pe0_o               (bias_pe0_int),
+        .bias_pe1_o               (bias_pe1_int),
+        .bias_pe2_o               (bias_pe2_int),
+        .bias_pe3_o               (bias_pe3_int)
+    );
+
+    // -------------------------------------------------------------------------
+    // A파트에서 B파트로 전달하는 1단 입력 Pipeline
+    //
+    // op_start, bias_load, MAC 데이터 및 제어를 모두 1 Clock 지연하여
+    // A파트의 다음 상태 전환과 관계없이 B파트가 현재 Output 연산의
+    // PE Mask·Bias·Activation·Weight를 끝까지 유지하도록 한다.
+    // -------------------------------------------------------------------------
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            op_start_core_reg    <= 1'b0;
+            bias_load_core_reg   <= 1'b0;
+            mac_valid_core_reg   <= 1'b0;
+            mac_last_core_reg    <= 1'b0;
+
+            activation_core_reg  <= 16'sd0;
+            weight_pe0_core_reg  <= 16'sd0;
+            weight_pe1_core_reg  <= 16'sd0;
+            weight_pe2_core_reg  <= 16'sd0;
+            weight_pe3_core_reg  <= 16'sd0;
+
+            bias_pe0_core_reg    <= 32'sd0;
+            bias_pe1_core_reg    <= 32'sd0;
+            bias_pe2_core_reg    <= 32'sd0;
+            bias_pe3_core_reg    <= 32'sd0;
+        end
+        else begin
+            // 연산 제어 Pulse를 모두 1 Clock 지연
+            op_start_core_reg  <= op_start_int;
+            bias_load_core_reg <= bias_load_int;
+            mac_valid_core_reg <= mac_valid_int;
+
+            // mac_last는 유효한 MAC과 함께 들어올 때만 전달
+            mac_last_core_reg
+                <= mac_valid_int && mac_last_int;
+
+            // Bias Load Pulse와 Bias 데이터를 같은 Pipeline 단계에 저장
+            if (bias_load_int) begin
+                bias_pe0_core_reg <= bias_pe0_int;
+                bias_pe1_core_reg <= bias_pe1_int;
+                bias_pe2_core_reg <= bias_pe2_int;
+                bias_pe3_core_reg <= bias_pe3_int;
+            end
+
+            // 유효한 MAC 데이터가 들어올 때만 입력 Register 갱신
+            if (mac_valid_int) begin
+                activation_core_reg <= activation_int;
+                weight_pe0_core_reg <= weight_pe0_int;
+                weight_pe1_core_reg <= weight_pe1_int;
+                weight_pe2_core_reg <= weight_pe2_int;
+                weight_pe3_core_reg <= weight_pe3_int;
+            end
+        end
+    end
+
+    // A파트가 공급한 데이터로 4개 Output Channel을 병렬 연산
+    srcnn_compute_core u_srcnn_compute_core (
+		// Input Port
+        // Clock / Reset
+        .clk            (clk),
+        .rst_n          (rst_n),
+
+        // A파트가 생성한 연산 제어 신호
+        .op_start       (op_start_core_reg),
+        .bias_load      (bias_load_core_reg),
+        .mac_valid      (mac_valid_core_reg),
+        .mac_last       (mac_last_core_reg),
+
+        // 현재 Output Channel Group의 PE Mask
+        .pe_enable      (pe_enable_int),
+
+        // 공통 Activation
+        .activation     (activation_core_reg),
+
+        // PE0~PE3 Weight
+        .weight0        (weight_pe0_core_reg),
+        .weight1        (weight_pe1_core_reg),
+        .weight2        (weight_pe2_core_reg),
+        .weight3        (weight_pe3_core_reg),
+
+        // PE0~PE3 Bias
+        .bias0          (bias_pe0_core_reg),
+        .bias1          (bias_pe1_core_reg),
+        .bias2          (bias_pe2_core_reg),
+        .bias3          (bias_pe3_core_reg),
+
+		// Output Port
+        // PE0~PE3 INT48 누산 결과를 외부 출력에 연결
+        .accumulator0   (accumulator0_o),
+        .accumulator1   (accumulator1_o),
+        .accumulator2   (accumulator2_o),
+        .accumulator3   (accumulator3_o),
+
+        // B파트 상태를 A파트 및 외부 출력에 연결
+        .busy           (core_busy_int),
+        .acc_valid      (acc_valid_o),
+        .core_done      (core_done_int)
+    );
+
+	// PE0 INT48 결과를 Layer 설정에 맞춰 INT16으로 후처리
+    requant_relu u_requant_relu_pe0 (
+        .clk     (clk),
+        .rst_n   (rst_n),
+        .acc_i   (accumulator0_o),
+        .shift_i (requant_shift_i),
+        .data_o  (requant_pe0_int)
+    );
+
+	// PE1 INT48 결과를 Layer 설정에 맞춰 INT16으로 후처리
+    requant_relu u_requant_relu_pe1 (
+        .clk     (clk),
+        .rst_n   (rst_n),
+        .acc_i   (accumulator1_o),
+        .shift_i (requant_shift_i),
+        .data_o  (requant_pe1_int)
+    );
+
+	// PE2 INT48 결과를 Layer 설정에 맞춰 INT16으로 후처리
+    requant_relu u_requant_relu_pe2 (
+        .clk     (clk),
+        .rst_n   (rst_n),
+        .acc_i   (accumulator2_o),
+        .shift_i (requant_shift_i),
+        .data_o  (requant_pe2_int)
+    );
+
+	// PE3 INT48 결과를 Layer 설정에 맞춰 INT16으로 후처리
+    requant_relu u_requant_relu_pe3 (
+        .clk     (clk),
+        .rst_n   (rst_n),
+        .acc_i   (accumulator3_o),
+        .shift_i (requant_shift_i),
+        .data_o  (requant_pe3_int)
+    );
+
+	// 비활성 PE는 이전 연산값이 외부로 전달되지 않도록 0으로 Mask
+	// 저장된 결과 PE Mask의 각 비트로 내부 Requant 결과 선택
+    assign requant_pe0_o = result_pe_enable_pipe_reg[0]
+                         ? requant_pe0_int : 16'sd0;
+    assign requant_pe1_o = result_pe_enable_pipe_reg[1]
+                         ? requant_pe1_int : 16'sd0;
+    assign requant_pe2_o = result_pe_enable_pipe_reg[2]
+                         ? requant_pe2_int : 16'sd0;
+    assign requant_pe3_o = result_pe_enable_pipe_reg[3]
+                         ? requant_pe3_int : 16'sd0;
+
+    // Valid와 결과 위치를 Requant의 4단 Pipeline과 동일하게 이동
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            requant_valid_pipe_reg <= 4'b0000;
+
+            result_group_stage1_reg     <= 6'd0;
+            result_y_stage1_reg         <= 5'd0;
+            result_x_stage1_reg         <= 5'd0;
+            result_pe_enable_stage1_reg <= 4'b0000;
+
+            result_group_stage2_reg     <= 6'd0;
+            result_y_stage2_reg         <= 5'd0;
+            result_x_stage2_reg         <= 5'd0;
+            result_pe_enable_stage2_reg <= 4'b0000;
+
+            result_group_stage3_reg     <= 6'd0;
+            result_y_stage3_reg         <= 5'd0;
+            result_x_stage3_reg         <= 5'd0;
+            result_pe_enable_stage3_reg <= 4'b0000;
+
+            result_out_channel_group_pipe_reg <= 6'd0;
+            result_y_pipe_reg                 <= 5'd0;
+            result_x_pipe_reg                 <= 5'd0;
+            result_pe_enable_pipe_reg         <= 4'b0000;
+        end
+        else begin
+            // bit0→bit1→bit2→bit3 순서로 Valid 이동
+            requant_valid_pipe_reg
+                <= {requant_valid_pipe_reg[2:0], acc_valid_o};
+
+            // Stage 1: INT48 결과가 발생한 위치 저장
+            if (acc_valid_o) begin
+                result_group_stage1_reg
+                    <= result_out_channel_group_reg;
+                result_y_stage1_reg
+                    <= result_y_reg;
+                result_x_stage1_reg
+                    <= result_x_reg;
+                result_pe_enable_stage1_reg
+                    <= result_pe_enable_reg;
+            end
+
+            // Stage 2
+            if (requant_valid_pipe_reg[0]) begin
+                result_group_stage2_reg
+                    <= result_group_stage1_reg;
+                result_y_stage2_reg
+                    <= result_y_stage1_reg;
+                result_x_stage2_reg
+                    <= result_x_stage1_reg;
+                result_pe_enable_stage2_reg
+                    <= result_pe_enable_stage1_reg;
+            end
+
+            // Stage 3
+            if (requant_valid_pipe_reg[1]) begin
+                result_group_stage3_reg
+                    <= result_group_stage2_reg;
+                result_y_stage3_reg
+                    <= result_y_stage2_reg;
+                result_x_stage3_reg
+                    <= result_x_stage2_reg;
+                result_pe_enable_stage3_reg
+                    <= result_pe_enable_stage2_reg;
+            end
+
+            // Stage 4: Requant 출력과 같은 Cycle에 위치 도착
+            if (requant_valid_pipe_reg[2]) begin
+                result_out_channel_group_pipe_reg
+                    <= result_group_stage3_reg;
+                result_y_pipe_reg
+                    <= result_y_stage3_reg;
+                result_x_pipe_reg
+                    <= result_x_stage3_reg;
+                result_pe_enable_pipe_reg
+                    <= result_pe_enable_stage3_reg;
+            end
+        end
+    end
+
+    // INT48 Valid를 4 Clock 지연해 Requant Valid 생성
+    assign requant_valid_o = requant_valid_pipe_reg[3];
+	
+    // Bias Load 시점의 Output 위치와 PE Mask를 결과 완료까지 유지
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            result_out_channel_group_reg <= 6'd0;
+            result_y_reg                 <= 5'd0;
+            result_x_reg                 <= 5'd0;
+            result_pe_enable_reg         <= 4'b0000;
+        end
+        else if (bias_load_int) begin
+            result_out_channel_group_reg <= out_channel_group_int;
+            result_y_reg                 <= out_y_int;
+            result_x_reg                 <= out_x_int;
+            result_pe_enable_reg         <= pe_enable_int;
+        end
+    end
+
+    // requant_valid_o와 함께 유효한 결과 위치
+    assign result_out_channel_group_o = result_out_channel_group_pipe_reg;
+
+    assign result_y_o         = result_y_pipe_reg;
+    assign result_x_o         = result_x_pipe_reg;
+    assign result_pe_enable_o = result_pe_enable_pipe_reg;
+
+endmodule

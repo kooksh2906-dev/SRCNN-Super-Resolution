@@ -1,2 +1,4 @@
 vivado/constraints/Zybo-Z7-Master.xdc whitespace=-trailing-space
 vivado/project/SRCNN_NPU_bd.tcl whitespace=-trailing-space
+vivado/project/SRCNN_NPU_SOC/** whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
+vivado/project/ip_repo/** whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab

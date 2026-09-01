@@ -131,3 +131,14 @@ python3 -m venv .venv
 | 최종 영상 Tile Seam | 없음 |
 
 최종 실보드 검증 기록은 `vitis/docs/board_validation.md`에 보존한다.
+
+## Vivado GUI 프로젝트
+
+Vivado 2024.2에서 다음 XPR을 열어 최종 Zybo Z7-20 Block Design과 Custom IP를 확인할 수 있다.
+
+- `vivado/project/SRCNN_NPU_SOC/SRCNN_NPU_SOC.xpr`
+- Board: `digilentinc.com:zybo-z7-20:part0:1.1`
+- Part: `xc7z020clg400-1`
+- Custom IP: `user.org:user:AXI4_SRCNN_NPU:1.0`
+
+Vivado 실행 Cache와 Runs는 포함하지 않으며 최종 BIT/XSA는 `vivado/output/`에 보존한다.
