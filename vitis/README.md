@@ -70,6 +70,44 @@ vitis -s vitis/scripts/create_application.py
 생성되는 Platform은 `srcnn_team_a_platform`이고 Application은
 `srcnn_team_a_final`이다.
 
+## Workspace 재생성 및 GUI 실행
+
+저장소에 포함된 자동화 스크립트는 최종 XSA를 사용해 Platform과
+Application을 순서대로 Build한 뒤 Vitis Unified IDE에서 Workspace를 연다.
+
+저장소 최상위에서 다음 한 줄을 실행한다.
+
+```bash
+bash vitis/scripts/rebuild_and_open_workspace.sh
+```
+
+기본 Vitis 설치 경로는 `/media/user3/data/tools/Vitis/2024.2`이고,
+Workspace는 `build/vitis_workspace`이다. 다른 설치 또는 Workspace 경로를
+사용할 때는 환경변수로 지정한다.
+
+```bash
+SRCNN_VITIS_HOME=/원하는/Vitis/2024.2 \
+SRCNN_VITIS_WS=/원하는/워크스페이스 \
+bash vitis/scripts/rebuild_and_open_workspace.sh
+```
+
+스크립트를 사용하지 않고 수동으로 실행할 때의 전체 순서는 다음과 같다.
+
+```bash
+repo=/path/to/SRCNN-Super-Resolution
+
+source /media/user3/data/tools/Vitis/2024.2/settings64.sh
+cd "$repo"
+
+vitis -s vitis/scripts/create_platform.py
+vitis -s vitis/scripts/create_application.py
+
+vitis -w "$repo/build/vitis_workspace"
+```
+
+생성되는 Workspace는 Build 산출물이므로 Git에 포함하지 않는다. 최종 소스,
+재생성 스크립트, 실보드 검증 ELF/FSBL만 저장소에서 관리한다.
+
 ## JTAG 연결 확인
 
 별도 터미널에서 Vitis 환경을 설정하고 `hw_server`를 실행한다.
